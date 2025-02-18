@@ -1,5 +1,5 @@
 # Analizador lexico
-Este documento detalla el proceso para crear un analizador lexico usando la libreria `ply` y la libreria `unittest`, para esto tendremos que instalar la lipreria `ply` de la siguiente forma:
+Este documento detalla el proceso para crear un analizador lexico usando la libreria `ply` y la libreria `unittest` para las pruebas unitarias, para esto tendremos que instalar la lipreria `ply` de la siguiente forma:
 ```c
 pip install ply
 ```
@@ -106,3 +106,45 @@ Posteriormente creamos el contructor para el analizador lexico
 def build_lexer():
     return lex.lex()
 ```
+### Se define el main
+```c
+if __name__ == "__main__":
+    lexer = build_lexer()
+    data = "3 + 4 * 2"
+    lexer.input(data)
+    
+    while True:
+        token = lexer.token()
+        if not token:
+            break
+        print(token)
+
+```
+---
+# Pruebas unitarias
+Para las pruebas unitarias se usó las libreria `unittest` e importando el contructor del analizador, de la siguiente forma:
+```c
+import unittest
+from analizador import build_lexer
+```
+Ejemplo de las pruebas unitarias:
+```c
+def test_expresion_mixta(self):
+        #Prueba una expresión matemática completa
+        self.lexer.input("3 + 4 * 2 - 1 / 5")
+        tokens = [tok for tok in self.lexer]
+        tipos_esperados = ['NUMBER', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'MINUS', 'NUMBER', 'DIVIDE', 'NUMBER']
+        valores_esperados = [3, '+', 4, '*', 2, '-', 1, '/', 5]
+
+        self.assertEqual([t.type for t in tokens], tipos_esperados)
+        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
+```
+---
+#Errores cometidos
+- Tuvimos un problema al asignar las palabras reservadas ya que intentamos asignarlas como tokens y en realidad se asiganan como
+- Tuvimos un puqueño error al asignar `t_QUOTE = r'\"'` y `t_DQUOTE = r'\''` ya que lo hicimos de la siguiente forma:
+```c
+t_quote = r'\"'
+t_dquote = r'\''
+```
+y el token originar estaban definidas como `'QUOTE', 'DQUOTE'`
