@@ -16,15 +16,18 @@ reserved = {
     'null': 'NULL',
     'break': 'BREAK',
     'import': 'IMPORT',
-    'from': 'FROM'
+    'from': 'FROM',
+    'and': 'AND',
+    'or': 'OR',
+    'not': 'NOT'
 }
 
 # Definición de tokens
 tokens = [
-    'NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
+    'NUMBER', 'FLOAT', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
     'LPAR', 'RPAR', 'COMMA', 'SEMICOLON', 'COLON', 'DOT',
     'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
-    'AND', 'OR', 'NOT', 'ASSIGN',
+    'ASSIGN',
     'ID',
     'QUOTE', 'DQUOTE', 'STRING'
 ] + list(reserved.values())  # Agrega las palabras reservadas a los tokens
@@ -44,11 +47,6 @@ t_GT = r'>'
 t_LT = r'<'
 t_GTE = r'>='
 t_LTE = r'<='
-
-# Expresiones regulares para operadores lógicos
-t_AND = r'\band\b'
-t_OR = r'\bor\b'
-t_NOT = r'\bnot\b'
 
 # Expresión regular para asignación
 t_ASSIGN = r'='
@@ -73,6 +71,12 @@ t_DQUOTE = r'\''
 def t_STRING(t):
     r'\"([^\\\n]|(\\.))*?\"|\'.*?\''
     t.value = t.value[1:-1]  # Remover las comillas
+    return t
+
+# Expresión regular para reconocer números flotantes
+def t_FLOAT(t):
+    r'\d+\.\d+'
+    t.value = float(t.value)
     return t
 
 # Expresión regular para reconocer números enteros
@@ -112,7 +116,7 @@ def build_lexer():
 # Solo ejecutar el ejemplo si el archivo se ejecuta directamente
 if __name__ == "__main__":
     lexer = build_lexer()
-    data = 'var x = 3 + 4 * 2 # Esto es un comentario de línea\n "Esto es una cadena" /* Esto es un comentario de bloque */'
+    data = 'var x = 3.12 and 4 * 2 # Esto es un comentario de línea\n "Esto es una cadena" /* Esto es un comentario de bloque */'
     lexer.input(data)
 
     while True:
