@@ -1,11 +1,11 @@
 import unittest
-from analizador import construir_analizador
+from analizador import build_lexer
 
 class TestAnalizadorLexico(unittest.TestCase):
 
     def setUp(self):
         #Crear una instancia del analizador antes de cada prueba
-        self.lexer = construir_analizador()
+        self.lexer = build_lexer()
 
     def test_numeros(self):
         #Prueba si el analizador reconoce números correctamente

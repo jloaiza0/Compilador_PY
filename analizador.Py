@@ -4,10 +4,11 @@ import ply.lex as lex
 tokens = [
     'NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
     'LPAR', 'RPAR', 'COMMA', 'SEMICOLON', 'COLON', 'DOT',
-    'LBRACE', 'RBRACE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
+    'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
     'AND', 'OR', 'NOT', 'ASSIGN',
     'CONSTANT', 'VAR', 'PRINT', 'IF', 'ELSE', 'WHILE', 'FOR', 'FUNCTION', 'RETURN',
-    'TRUE', 'FALSE', 'NULL', 'BREAK', 'IMPORT', 'FROM'
+    'TRUE', 'FALSE', 'NULL', 'BREAK', 'IMPORT', 'FROM',
+    'QUOTE', 'DQUOTE'
 ]
 
 # Expresiones regulares para tokens de operadores matemáticos
@@ -43,6 +44,8 @@ t_COLON = r'\:'
 t_DOT = r'\.'
 t_LBRACE = r'\{'
 t_RBRACE = r'\}'
+t_LSQUARE = r'\['
+t_RSQUARE = r'\]'
 
 # Expresiones regulares para palabras reservadas
 t_CONSTANT = r'\bconst\b'
@@ -61,30 +64,36 @@ t_BREAK = r'\bbreak\b'
 t_IMPORT = r'\bimport\b'
 t_FROM = r'\bfrom\b'
 
+# Expresiones regulares para otros símbolos
+t_quote = r'\"'
+t_dquote = r'\''
+
 # Expresión regular para reconocer números enteros
 def t_NUMBER(t):
     r'\d+'
     t.value = int(t.value)
     return t
 
-# Ignorar caracteres como espacios y saltos de línea
+#Ignorar caracteres como espacios y saltos de línea
 t_ignore = ' \n'
 
-# Manejo de errores de token
+#Manejo de errores de token
 def t_error(t):
     print("Carácter no válido: '%s'" % t.value[0])
     t.lexer.skip(1)
 
-# Construcción del analizador léxico
-lexer = lex.lex()
+#Función para construir el analizador léxico
+def build_lexer():
+    return lex.lex()
 
-# Ejemplo de uso
-data = "var x = 3 + 4 * (2 - 1); if (x != 0 and not y) { print(x); }"
-lexer.input(data)
+#Solo ejecutar el ejemplo si el archivo se ejecuta directamente
+if name == "main":
+    lexer = build_lexer()
+    data = "3 + 4 * 2"
+    lexer.input(data)
 
-# Obtener los tokens reconocidos
-while True:
-    token = lexer.token()
-    if not token:
-        break
-    print(token)
+    while True:
+        token = lexer.token()
+        if not token:
+            break
+        print(token)
