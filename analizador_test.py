@@ -93,7 +93,7 @@ class TestAnalizadorLexico(unittest.TestCase):
         # Prueba para el token FLOAT
         self.lexer.input('3.14')
         tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['FLOAT']  # El token de flotante se debe clasificar como 'NUMBER'
+        tipos_esperados = ['FLOAT']
         valores_esperados = [3.14]
 
         self.assertEqual([t.type for t in tokens], tipos_esperados)

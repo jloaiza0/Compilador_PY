@@ -87,12 +87,6 @@ t_RSQUARE = r'\]'
 t_QUOTE = r'\"'
 t_DQUOTE = r'\''
 ```
-### Expresiones regulares para operadores lógicos
-```c
-t_AND = r'\band\b'
-t_OR = r'\bor\b'
-t_NOT = r'\bnot\b'
-```
 ### Expresión regular para reconocer cadenas
 ```c
 def t_STRING(t):
@@ -121,7 +115,7 @@ def t_ID(t):
     t.type = reserved.get(t.value, 'ID')  # Verificar si es una palabra reservada
     return t
 ```
-### Ingorar caracteres como espacios y saltos de línea
+### Ignorar caracteres como espacios y saltos de línea
 ```c
 t_ignore = ' \t\n'
 ```
@@ -134,7 +128,7 @@ def t_error(t):
     print("Carácter no válido: '%s'" % t.value[0])
     t.lexer.skip(1)
 ```
-Posteriormente creamos el contructor para el analizador lexico
+Posteriormente creamos el constructor para el analizador lexico
 ```c
 def build_lexer():
     return lex.lex()
@@ -183,8 +177,8 @@ Dando como resultado 10 pruebas unitaras con resultados satisfactorios.
 t_quote = r'\"'
 t_dquote = r'\''
 ```
-y el token originar estaban definidas como `'QUOTE', 'DQUOTE'`
-- Tuvimos que agregar primero la expresion regular del numero flotante antes que la del numero entero ya que se esta reconociendo como numero entero y no como flotante.
+y en el token original estaban definidas como `'QUOTE', 'DQUOTE'`
+- Tuvimos que agregar primero la expresion regular del numero flotante antes que la del numero entero ya que se estaba reconociendo como numero entero y no como flotante.
 ---
 # UNIVERSIDAD TECNOLOGICA DE PERERIA 2025
 # COMPILADORES GRUPO 2
