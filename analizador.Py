@@ -87,7 +87,7 @@ def build_lexer():
     return lex.lex()
 
 #Solo ejecutar el ejemplo si el archivo se ejecuta directamente
-if name == "main":
+if __name__ == "main":
     lexer = build_lexer()
     data = "3 + 4 * 2"
     lexer.input(data)
