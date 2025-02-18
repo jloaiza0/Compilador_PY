@@ -1,15 +1,33 @@
 import ply.lex as lex
 
+# Diccionario de palabras reservadas
+reserved = {
+    'const': 'CONSTANT',
+    'var': 'VAR',
+    'print': 'PRINT',
+    'if': 'IF',
+    'else': 'ELSE',
+    'while': 'WHILE',
+    'for': 'FOR',
+    'function': 'FUNCTION',
+    'return': 'RETURN',
+    'true': 'TRUE',
+    'false': 'FALSE',
+    'null': 'NULL',
+    'break': 'BREAK',
+    'import': 'IMPORT',
+    'from': 'FROM'
+}
+
 # Definición de tokens
 tokens = [
     'NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
     'LPAR', 'RPAR', 'COMMA', 'SEMICOLON', 'COLON', 'DOT',
     'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
     'AND', 'OR', 'NOT', 'ASSIGN',
-    'CONSTANT', 'VAR', 'PRINT', 'IF', 'ELSE', 'WHILE', 'FOR', 'FUNCTION', 'RETURN',
-    'TRUE', 'FALSE', 'NULL', 'BREAK', 'IMPORT', 'FROM',
-    'QUOTE', 'DQUOTE'
-]
+    'ID',
+    'QUOTE', 'DQUOTE', 'STRING'
+] + list(reserved.values())  # Agrega las palabras reservadas a los tokens
 
 # Expresiones regulares para tokens de operadores matemáticos
 t_PLUS = r'\+'
@@ -47,26 +65,15 @@ t_RBRACE = r'\}'
 t_LSQUARE = r'\['
 t_RSQUARE = r'\]'
 
-# Expresiones regulares para palabras reservadas
-t_CONSTANT = r'\bconst\b'
-t_VAR = r'\bvar\b'
-t_PRINT = r'\bprint\b'
-t_IF = r'\bif\b'
-t_ELSE = r'\belse\b'
-t_WHILE = r'\bwhile\b'
-t_FOR = r'\bfor\b'
-t_FUNCTION = r'\bfunction\b'
-t_RETURN = r'\breturn\b'
-t_TRUE = r'\btrue\b'
-t_FALSE = r'\bfalse\b'
-t_NULL = r'\bnull\b'
-t_BREAK = r'\bbreak\b'
-t_IMPORT = r'\bimport\b'
-t_FROM = r'\bfrom\b'
-
 # Expresiones regulares para otros símbolos
 t_QUOTE = r'\"'
 t_DQUOTE = r'\''
+
+# Expresión regular para reconocer cadenas
+def t_STRING(t):
+    r'\"([^\\\n]|(\\.))*?\"|\'.*?\''
+    t.value = t.value[1:-1]  # Remover las comillas
+    return t
 
 # Expresión regular para reconocer números enteros
 def t_NUMBER(t):
@@ -74,8 +81,24 @@ def t_NUMBER(t):
     t.value = int(t.value)
     return t
 
+# Expresión regular para reconocer identificadores
+def t_ID(t):
+    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    t.type = reserved.get(t.value, 'ID')  # Verificar si es una palabra reservada
+    return t
+
 # Ignorar caracteres como espacios y saltos de línea
-t_ignore = ' \n'
+t_ignore = ' \t\n'
+
+# Manejo de comentarios de línea
+def t_COMMENT(t):
+    r'\#.*'
+    pass  # Ignorar el comentario
+
+# Manejo de comentarios de bloque
+def t_BLOCKCOMMENT(t):
+    r'/\*.*?\*/'
+    pass  # Ignorar el comentario
 
 # Manejo de errores de token
 def t_error(t):
@@ -87,11 +110,11 @@ def build_lexer():
     return lex.lex()
 
 # Solo ejecutar el ejemplo si el archivo se ejecuta directamente
-if __name__ == "__main__":  # Asegúrate de usar "__main__"
+if __name__ == "__main__":
     lexer = build_lexer()
-    data = "3 + 4 * 2"
+    data = 'var x = 3 + 4 * 2 # Esto es un comentario de línea\n "Esto es una cadena" /* Esto es un comentario de bloque */'
     lexer.input(data)
-    
+
     while True:
         token = lexer.token()
         if not token:
