@@ -5,9 +5,9 @@ tokens = ['NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE']
 
 # Expresiones regulares para tokens simples
 t_PLUS = r'\+'
-t_MINUS = r'-'
+t_MINUS = r'\-'
 t_TIMES = r'\*'
-t_DIVIDE = r'/'
+t_DIVIDE = r'\/'
 
 # Expresión regular para reconocer números enteros
 def t_NUMBER(t):
