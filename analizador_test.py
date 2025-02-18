@@ -79,14 +79,34 @@ class TestAnalizadorLexico(unittest.TestCase):
         self.assertEqual([t.type for t in tokens], tipos_esperados)
         self.assertEqual([str(t.value) for t in tokens], valores_esperados)
 
+    def test_string(self):
+        # Prueba para el token STRING
+        self.lexer.input('"Hola Mundo!"')
+        tokens = [tok for tok in self.lexer]
+        tipos_esperados = ['STRING']
+        valores_esperados = ['Hola Mundo!']
+
+        self.assertEqual([t.type for t in tokens], tipos_esperados)
+        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
+
+    def test_float(self):
+        # Prueba para el token FLOAT
+        self.lexer.input('3.14')
+        tokens = [tok for tok in self.lexer]
+        tipos_esperados = ['FLOAT']  # El token de flotante se debe clasificar como 'NUMBER'
+        valores_esperados = [3.14]
+
+        self.assertEqual([t.type for t in tokens], tipos_esperados)
+        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
+
     def test_todos_los_tipos(self):
         # Prueba final que cubre todos los tipos de tokens
-        self.lexer.input("const x = 10 + 20 * 30 and if (x > 10) print 'Hola, Mundo!'")
+        self.lexer.input("const x = 10.2 + 20 * 30 and if (x > 10) print 'Hola, Mundo!'")
         tokens = [tok for tok in self.lexer]
         tipos_esperados = [
-            'CONSTANT', 'ID', 'ASSIGN', 'NUMBER', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'AND', 'IF', 'LPAR', 'ID', 'GT', 'NUMBER', 'RPAR', 'PRINT', 'STRING'
+            'CONSTANT', 'ID', 'ASSIGN', 'FLOAT', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'AND', 'IF', 'LPAR', 'ID', 'GT', 'NUMBER', 'RPAR', 'PRINT', 'STRING'
         ]
-        valores_esperados = ['const', 'x', '=', 10, '+', 20, '*', 30, 'and', 'if', '(', 'x', '>', 10, ')', 'print', 'Hola, Mundo!']
+        valores_esperados = ['const', 'x', '=', 10.2, '+', 20, '*', 30, 'and', 'if', '(', 'x', '>', 10, ')', 'print', 'Hola, Mundo!']
 
         self.assertEqual([t.type for t in tokens], tipos_esperados)
         self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])

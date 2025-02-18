@@ -1,5 +1,5 @@
 # Analizador lexico
-Este documento detalla el proceso para crear un analizador lexico usando la libreria `ply` y la libreria `unittest` para las pruebas unitarias, para esto tendremos que instalar la lipreria `ply` de la siguiente forma:
+Este documento detalla el proceso para crear un analizador lexico usando la libreria `ply` y la libreria `unittest` para las pruebas unitarias, para esto tendremos que instalar la libreria `ply` de la siguiente forma:
 ```c
 pip install ply
 ```
@@ -8,19 +8,42 @@ pip install ply
 - Javier Parra
 - Estiven Munoz
 ---
-# Contruccion del analizador lexico usando ply
+# Construccion del analizador lexico usando ply
 ### Tokens asignados:
 ```c
 tokens = [
-    'NUMBER', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
+    'NUMBER', 'FLOAT', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
     'LPAR', 'RPAR', 'COMMA', 'SEMICOLON', 'COLON', 'DOT',
-    'LBRACE', 'RBRACE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
-    'AND', 'OR', 'NOT', 'ASSIGN',
-    'CONSTANT', 'VAR', 'PRINT', 'IF', 'ELSE', 'WHILE', 'FOR', 'FUNCTION', 'RETURN',
-    'TRUE', 'FALSE', 'NULL', 'BREAK', 'IMPORT', 'FROM'
-]
+    'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
+    'ASSIGN',
+    'ID',
+    'QUOTE', 'DQUOTE', 'STRING', 'COMMENT', 'BLOCKCOMMENT'
+] + list(reserved.values())
 ```
-En esta sección del código se inicializan los tokens que se usarán posteriormente
+### Palabras reservadas
+```c
+reserved = {
+    'const': 'CONSTANT',
+    'var': 'VAR',
+    'print': 'PRINT',
+    'if': 'IF',
+    'else': 'ELSE',
+    'while': 'WHILE',
+    'for': 'FOR',
+    'function': 'FUNCTION',
+    'return': 'RETURN',
+    'true': 'TRUE',
+    'false': 'FALSE',
+    'null': 'NULL',
+    'break': 'BREAK',
+    'import': 'IMPORT',
+    'from': 'FROM',
+    'and': 'AND',
+    'or': 'OR',
+    'not': 'NOT'
+}
+```
+En esta sección del código se inicializan los tokens y palabras reservadas que se usarán posteriormente
 ---
 # Expresiones regulares
 En esta sección se asignan los simbolos a cada token
@@ -42,12 +65,6 @@ t_LT = r'<'
 t_GTE = r'>='
 t_LTE = r'<='
 ```
-### Expresiones regulares para operadores lógicos
-```c
-t_AND = r'\band\b'
-t_OR = r'\bor\b'
-t_NOT = r'\bnot\b'
-```
 ### Expresión regular para asignación
 ```c
 t_ASSIGN = r'='
@@ -62,24 +79,33 @@ t_COLON = r'\:'
 t_DOT = r'\.'
 t_LBRACE = r'\{'
 t_RBRACE = r'\}'
+t_LSQUARE = r'\['
+t_RSQUARE = r'\]'
 ```
-### Expresiones regulares para palabras reservadas
+### Expresiones regulares para otros símbolos
 ```c
-t_CONSTANT = r'\bconst\b'
-t_VAR = r'\bvar\b'
-t_PRINT = r'\bprint\b'
-t_IF = r'\bif\b'
-t_ELSE = r'\belse\b'
-t_WHILE = r'\bwhile\b'
-t_FOR = r'\bfor\b'
-t_FUNCTION = r'\bfunction\b'
-t_RETURN = r'\breturn\b'
-t_TRUE = r'\btrue\b'
-t_FALSE = r'\bfalse\b'
-t_NULL = r'\bnull\b'
-t_BREAK = r'\bbreak\b'
-t_IMPORT = r'\bimport\b'
-t_FROM = r'\bfrom\b'
+t_QUOTE = r'\"'
+t_DQUOTE = r'\''
+```
+### Expresiones regulares para operadores lógicos
+```c
+t_AND = r'\band\b'
+t_OR = r'\bor\b'
+t_NOT = r'\bnot\b'
+```
+### Expresión regular para reconocer cadenas
+```c
+def t_STRING(t):
+    r'\"([^\\\n]|(\\.))*?\"|\'.*?\''
+    t.value = t.value[1:-1]  # Remover las comillas
+    return t
+```
+### Expresión regular para reconocer números flotantes
+```c
+def t_FLOAT(t):
+    r'\d+\.\d+'
+    t.value = float(t.value)
+    return t
 ```
 ### Expresión regular para reconocer números enteros
 ```c
@@ -88,9 +114,16 @@ def t_NUMBER(t):
     t.value = int(t.value)
     return t
 ```
-### Ingorar
+### Expresión regular para reconocer identificadores
 ```c
-t_ignore = ' \n'
+def t_ID(t):
+    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    t.type = reserved.get(t.value, 'ID')  # Verificar si es una palabra reservada
+    return t
+```
+### Ingorar caracteres como espacios y saltos de línea
+```c
+t_ignore = ' \t\n'
 ```
 ---
 # Funciones necesarias
@@ -110,9 +143,9 @@ def build_lexer():
 ```c
 if __name__ == "__main__":
     lexer = build_lexer()
-    data = "3 + 4 * 2"
+    data = 'var x = 3.12 and 4 * 2 # Esto es un comentario de línea\n "Esto es una cadena" /* Esto es un comentario de bloque */'
     lexer.input(data)
-    
+
     while True:
         token = lexer.token()
         if not token:
@@ -127,24 +160,32 @@ Para las pruebas unitarias se usó las libreria `unittest` e importando el contr
 import unittest
 from analizador import build_lexer
 ```
-Ejemplo de las pruebas unitarias:
+Hicimos pruebas unitarias para cada caso y al final una sola prueba que reune todos los casos:
 ```c
-def test_expresion_mixta(self):
-        #Prueba una expresión matemática completa
-        self.lexer.input("3 + 4 * 2 - 1 / 5")
+   def test_todos_los_tipos(self):
+        # Prueba final que cubre todos los tipos de tokens
+        self.lexer.input("const x = 10.2 + 20 * 30 and if (x > 10) print 'Hola, Mundo!'")
         tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['NUMBER', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'MINUS', 'NUMBER', 'DIVIDE', 'NUMBER']
-        valores_esperados = [3, '+', 4, '*', 2, '-', 1, '/', 5]
+        tipos_esperados = [
+            'CONSTANT', 'ID', 'ASSIGN', 'FLOAT', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'AND', 'IF', 'LPAR', 'ID', 'GT', 'NUMBER', 'RPAR', 'PRINT', 'STRING'
+        ]
+        valores_esperados = ['const', 'x', '=', 10.2, '+', 20, '*', 30, 'and', 'if', '(', 'x', '>', 10, ')', 'print', 'Hola, Mundo!']
 
         self.assertEqual([t.type for t in tokens], tipos_esperados)
         self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
 ```
+Dando como resultado 10 pruebas unitaras con resultados satisfactorios.
 ---
 #Errores cometidos
-- Tuvimos un problema al asignar las palabras reservadas ya que intentamos asignarlas como tokens y en realidad se asiganan como
+- Tuvimos un problema al asignar las palabras reservadas ya que intentamos asignarlas como tokens y en realidad se asiganan como un diccionaro, para luego concatenarla con los tokens cambiando `AND`, `OR` y `NOR` incluyendolas en las palabras reservadas.
 - Tuvimos un puqueño error al asignar `t_QUOTE = r'\"'` y `t_DQUOTE = r'\''` ya que lo hicimos de la siguiente forma:
 ```c
 t_quote = r'\"'
 t_dquote = r'\''
 ```
 y el token originar estaban definidas como `'QUOTE', 'DQUOTE'`
+- Tuvimos que agregar primero la expresion regular del numero flotante antes que la del numero entero ya que se esta reconociendo como numero entero y no como flotante.
+---
+# UNIVERSIDAD TECNOLOGICA DE PERERIA 2025
+# COMPILADORES GRUPO 2
+# DOCENTE: ANGEL AUGUSTO AGUDELO
