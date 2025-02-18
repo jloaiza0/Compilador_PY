@@ -29,7 +29,7 @@ tokens = [
     'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
     'ASSIGN',
     'ID',
-    'QUOTE', 'DQUOTE', 'STRING'
+    'QUOTE', 'DQUOTE', 'STRING', 'COMMENT', 'BLOCKCOMMENT'
 ] + list(reserved.values())  # Agrega las palabras reservadas a los tokens
 
 # Expresiones regulares para tokens de operadores matemáticos
@@ -94,12 +94,12 @@ def t_ID(t):
 # Ignorar caracteres como espacios y saltos de línea
 t_ignore = ' \t\n'
 
-# Manejo de comentarios de línea
+# Manejo de comentarios de línea !!
 def t_COMMENT(t):
     r'\#.*'
     pass  # Ignorar el comentario
 
-# Manejo de comentarios de bloque
+# Manejo de comentarios de bloque !!
 def t_BLOCKCOMMENT(t):
     r'/\*.*?\*/'
     pass  # Ignorar el comentario
