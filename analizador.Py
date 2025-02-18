@@ -65,8 +65,8 @@ t_IMPORT = r'\bimport\b'
 t_FROM = r'\bfrom\b'
 
 # Expresiones regulares para otros símbolos
-t_quote = r'\"'
-t_dquote = r'\''
+t_QUOTE = r'\"'
+t_DQUOTE = r'\''
 
 # Expresión regular para reconocer números enteros
 def t_NUMBER(t):
@@ -74,24 +74,24 @@ def t_NUMBER(t):
     t.value = int(t.value)
     return t
 
-#Ignorar caracteres como espacios y saltos de línea
+# Ignorar caracteres como espacios y saltos de línea
 t_ignore = ' \n'
 
-#Manejo de errores de token
+# Manejo de errores de token
 def t_error(t):
     print("Carácter no válido: '%s'" % t.value[0])
     t.lexer.skip(1)
 
-#Función para construir el analizador léxico
+# Función para construir el analizador léxico
 def build_lexer():
     return lex.lex()
 
-#Solo ejecutar el ejemplo si el archivo se ejecuta directamente
-if __name__ == "main":
+# Solo ejecutar el ejemplo si el archivo se ejecuta directamente
+if __name__ == "__main__":  # Asegúrate de usar "__main__"
     lexer = build_lexer()
     data = "3 + 4 * 2"
     lexer.input(data)
-
+    
     while True:
         token = lexer.token()
         if not token:
