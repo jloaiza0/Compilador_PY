@@ -176,7 +176,7 @@ Hicimos pruebas unitarias para cada caso y al final una sola prueba que reune to
 ```
 Dando como resultado 10 pruebas unitaras con resultados satisfactorios.
 ---
-#Errores cometidos
+# Errores cometidos
 - Tuvimos un problema al asignar las palabras reservadas ya que intentamos asignarlas como tokens y en realidad se asiganan como un diccionaro, para luego concatenarla con los tokens cambiando `AND`, `OR` y `NOR` incluyendolas en las palabras reservadas.
 - Tuvimos un puqueño error al asignar `t_QUOTE = r'\"'` y `t_DQUOTE = r'\''` ya que lo hicimos de la siguiente forma:
 ```c
