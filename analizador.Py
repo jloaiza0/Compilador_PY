@@ -1,4 +1,5 @@
-import ply.lex as lex
+import re
+from dataclasses import dataclass
 
 # Diccionario de palabras reservadas
 reserved = {
@@ -22,105 +23,77 @@ reserved = {
     'not': 'NOT'
 }
 
-# Definición de tokens
-tokens = [
-    'NUMBER', 'FLOAT', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'POW', 'MOD',
-    'LPAR', 'RPAR', 'COMMA', 'SEMICOLON', 'COLON', 'DOT',
-    'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE', 'EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE',
-    'ASSIGN',
-    'ID',
-    'QUOTE', 'DQUOTE', 'STRING', 'COMMENT', 'BLOCKCOMMENT'
-] + list(reserved.values())  # Agrega las palabras reservadas a los tokens
+# Definición de tokens con orden adecuado
+TOKEN_SPEC = [
+    ('CONSTANT', r'\bconst\b'),
+    ('VAR', r'\bvar\b'),
+    ('PRINT', r'\bprint\b'),
+    ('RETURN', r'\breturn\b'),
+    ('BREAK', r'\bbreak\b'),
+    ('IF', r'\bif\b'),
+    ('ELSE', r'\belse\b'),
+    ('WHILE', r'\bwhile\b'),
+    ('FOR', r'\bfor\b'),
+    ('FUNCTION', r'\bfunction\b'),
+    ('IMPORT', r'\bimport\b'),
+    ('TRUE', r'\btrue\b'),
+    ('FALSE', r'\bfalse\b'),
+    ('NULL', r'\bnull\b'),
+    ('FROM', r'\bfrom\b'),
+    ('AND', r'\band\b'),
+    ('OR', r'\bor\b'),
+    ('NOT', r'\bnot\b'),
+    ('FLOAT', r'\d+\.\d*|\.\d+'),
+    ('NUMBER', r'\d+'),
+    ('ID', r'[a-zA-Z_][a-zA-Z_0-9]*'),
+    ('LTE', r'<='), ('GTE', r'>='), ('EQ', r'=='), ('NEQ', r'!='),
+    ('LT', r'<'), ('GT', r'>'), ('PLUS', r'\+'), ('MINUS', r'-'),
+    ('MULTIPLY', r'\*'), ('DIVIDE', r'/'), ('POW', r'\^'), ('MOD', r'%'),
+    ('ASSIGN', r'='),
+    ('LPAR', r'\('), ('RPAR', r'\)'), ('COMMA', r','), ('SEMICOLON', r';'),
+    ('COLON', r':'), ('DOT', r'\.'), ('LBRACE', r'\{'), ('RBRACE', r'\}'),
+    ('LSQUARE', r'\['), ('RSQUARE', r'\]'),
+    ('COMMENT', r'\#.*'),
+    ('BLOCKCOMMENT', r'/\*.*?\*/'),
+    ('WHITESPACE', r'\s+'),
+    ('MISMATCH', r'.')
+]
 
-# Expresiones regulares para tokens de operadores matemáticos
-t_PLUS = r'\+'
-t_MINUS = r'\-'
-t_TIMES = r'\*'
-t_DIVIDE = r'\/'
-t_POW = r'\^'
-t_MOD = r'\%'
+# Crear la expresión regular combinada a partir de los tokens
+token_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in TOKEN_SPEC)
 
-# Expresiones regulares para operadores de comparación
-t_EQ = r'=='
-t_NEQ = r'!='
-t_GT = r'>'
-t_LT = r'<'
-t_GTE = r'>='
-t_LTE = r'<='
+@dataclass
+class Token:
+    type: str   # Tipo del token (por ejemplo, VAR, ID, ASSIGN, etc.)
+    value: str  # Cadena que coincide (lexema)
+    lineno: int # Número de línea donde se encontró el token
 
-# Expresión regular para asignación
-t_ASSIGN = r'='
-
-# Expresiones regulares para tokens de puntuación y símbolos
-t_LPAR = r'\('
-t_RPAR = r'\)'
-t_COMMA = r'\,'
-t_SEMICOLON = r'\;'
-t_COLON = r'\:'
-t_DOT = r'\.'
-t_LBRACE = r'\{'
-t_RBRACE = r'\}'
-t_LSQUARE = r'\['
-t_RSQUARE = r'\]'
-
-# Expresiones regulares para otros símbolos
-t_QUOTE = r'\"'
-t_DQUOTE = r'\''
-
-# Expresión regular para reconocer cadenas
-def t_STRING(t):
-    r'\"([^\\\n]|(\\.))*?\"|\'.*?\''
-    t.value = t.value[1:-1]  # Remover las comillas
-    return t
-
-# Expresión regular para reconocer números flotantes
-def t_FLOAT(t):
-    r'\d+\.\d+'
-    t.value = float(t.value)
-    return t
-
-# Expresión regular para reconocer números enteros
-def t_NUMBER(t):
-    r'\d+'
-    t.value = int(t.value)
-    return t
-
-# Expresión regular para reconocer identificadores
-def t_ID(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*'
-    t.type = reserved.get(t.value, 'ID')  # Verificar si es una palabra reservada
-    return t
-
-# Ignorar caracteres como espacios y saltos de línea
-t_ignore = ' \t\n'
-
-# Manejo de comentarios de línea !!
-def t_COMMENT(t):
-    r'\#.*'
-    pass  # Ignorar el comentario
-
-# Manejo de comentarios de bloque !!
-def t_BLOCKCOMMENT(t):
-    r'/\*.*?\*/'
-    pass  # Ignorar el comentario
-
-# Manejo de errores de token
-def t_error(t):
-    print("Carácter no válido: '%s'" % t.value[0])
-    t.lexer.skip(1)
-
-# Función para construir el analizador léxico
-def build_lexer():
-    return lex.lex()
+def tokenize(text):
+    """
+    Función que recibe un código fuente y retorna una lista de tokens.
+    Los tokens se generan utilizando la expresión regular compuesta.
+    """
+    tokens = []
+    lineno = 1
+    for match in re.finditer(token_regex, text, re.DOTALL):
+        kind = match.lastgroup  # Nombre del token
+        value = match.group()   # Lexema encontrado
+        if kind == 'WHITESPACE':
+            lineno += value.count('\n')
+            continue
+        elif kind == 'COMMENT' or kind == 'BLOCKCOMMENT':
+            lineno += value.count('\n')
+            continue
+        elif kind == 'MISMATCH':
+            print(f"Línea {lineno}: Error - Caracter ilegal '{value}'")
+            continue
+        if kind == 'ID' and value in reserved:
+            kind = reserved[value]
+        tokens.append(Token(kind, value, lineno))
+    return tokens
 
 # Solo ejecutar el ejemplo si el archivo se ejecuta directamente
 if __name__ == "__main__":
-    lexer = build_lexer()
-    data = 'var x = 3.12 and 4 * 2 # Esto es un comentario de línea\n "Esto es una cadena" /* Esto es un comentario de bloque */'
-    lexer.input(data)
-
-    while True:
-        token = lexer.token()
-        if not token:
-            break
-        print(token)
+    test_code = 'var x = 3.12 and 4 * 2 # Esto es un comentario de línea\n/* Esto es un comentario de bloque */'
+    for tok in tokenize(test_code):
+        print(tok)

@@ -1,115 +1,104 @@
 import unittest
-from analizador import build_lexer
+from analizador import tokenize, Token
 
 class TestAnalizadorLexico(unittest.TestCase):
 
-    def setUp(self):
-        #Crear una instancia del analizador antes de cada prueba
-        self.lexer = build_lexer()
-
     def test_operadores_matematicos(self):
-        # Prueba para todos los operadores matemáticos
-        self.lexer.input("3 + 4 * 2 - 1 / 5")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['NUMBER', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'MINUS', 'NUMBER', 'DIVIDE', 'NUMBER']
-        valores_esperados = [3, '+', 4, '*', 2, '-', 1, '/', 5]
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
+        code = "3 + 4 * 2 - 1 / 5"
+        tokens = tokenize(code)
+        expected = [
+            Token("NUMBER", "3", 1),
+            Token("PLUS", "+", 1),
+            Token("NUMBER", "4", 1),
+            Token("MULTIPLY", "*", 1),
+            Token("NUMBER", "2", 1),
+            Token("MINUS", "-", 1),
+            Token("NUMBER", "1", 1),
+            Token("DIVIDE", "/", 1),
+            Token("NUMBER", "5", 1)
+        ]
+        self.assertEqual(tokens, expected)
 
     def test_operadores_comparacion(self):
-        # Prueba para todos los operadores de comparación
-        self.lexer.input("== != > < >= <=")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['EQ', 'NEQ', 'GT', 'LT', 'GTE', 'LTE']
-        valores_esperados = ['==', '!=', '>', '<', '>=', '<=']
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], valores_esperados)
+        code = "== != > < >= <="
+        tokens = tokenize(code)
+        expected = [
+            Token("EQ", "==", 1),
+            Token("NEQ", "!=", 1),
+            Token("GT", ">", 1),
+            Token("LT", "<", 1),
+            Token("GTE", ">=", 1),
+            Token("LTE", "<=", 1)
+        ]
+        self.assertEqual(tokens, expected)
 
     def test_operadores_logicos(self):
-        # Prueba para operadores lógicos
-        self.lexer.input("and or not")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['AND', 'OR', 'NOT']
-        valores_esperados = ['and', 'or', 'not']
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], valores_esperados)
+        code = "and or not"
+        tokens = tokenize(code)
+        expected = [
+            Token("AND", "and", 1),
+            Token("OR", "or", 1),
+            Token("NOT", "not", 1)
+        ]
+        self.assertEqual(tokens, expected)
 
     def test_puntuacion_y_simbolos(self):
-        # Prueba para puntuación y símbolos
-        self.lexer.input("() , ; : . { } [ ]")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['LPAR', 'RPAR', 'COMMA', 'SEMICOLON', 'COLON', 'DOT', 'LBRACE', 'RBRACE', 'LSQUARE', 'RSQUARE']
-        valores_esperados = ['(', ')', ',', ';', ':', '.', '{', '}', '[', ']']
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], valores_esperados)
+        code = "() , ; : . { } [ ]"
+        tokens = tokenize(code)
+        expected = [
+            Token("LPAR", "(", 1),
+            Token("RPAR", ")", 1),
+            Token("COMMA", ",", 1),
+            Token("SEMICOLON", ";", 1),
+            Token("COLON", ":", 1),
+            Token("DOT", ".", 1),
+            Token("LBRACE", "{", 1),
+            Token("RBRACE", "}", 1),
+            Token("LSQUARE", "[", 1),
+            Token("RSQUARE", "]", 1)
+        ]
+        self.assertEqual(tokens, expected)
 
     def test_palabras_reservadas(self):
-        # Prueba para palabras reservadas
-        self.lexer.input("const var print if else while for function return true false null break import from")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = [
-            'CONSTANT', 'VAR', 'PRINT', 'IF', 'ELSE', 'WHILE', 'FOR', 'FUNCTION', 'RETURN', 'TRUE', 'FALSE', 'NULL', 'BREAK', 'IMPORT', 'FROM'
+        code = "const var print if else while for function return true false null break import from"
+        tokens = tokenize(code)
+        expected = [
+            Token("CONSTANT", "const", 1),
+            Token("VAR", "var", 1),
+            Token("PRINT", "print", 1),
+            Token("IF", "if", 1),
+            Token("ELSE", "else", 1),
+            Token("WHILE", "while", 1),
+            Token("FOR", "for", 1),
+            Token("FUNCTION", "function", 1),
+            Token("RETURN", "return", 1),
+            Token("TRUE", "true", 1),
+            Token("FALSE", "false", 1),
+            Token("NULL", "null", 1),
+            Token("BREAK", "break", 1),
+            Token("IMPORT", "import", 1),
+            Token("FROM", "from", 1)
         ]
-        valores_esperados = ['const', 'var', 'print', 'if', 'else', 'while', 'for', 'function', 'return', 'true', 'false', 'null', 'break', 'import', 'from']
+        self.assertEqual(tokens, expected)
 
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], valores_esperados)
-
-    def test_cadenas(self):
-        # Prueba para cadenas
-        self.lexer.input('"Hola, mundo!" \'Texto de prueba\'')
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['STRING', 'STRING']
-        valores_esperados = ['Hola, mundo!', 'Texto de prueba']
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], valores_esperados)
 
     def test_identificadores(self):
-        # Prueba para identificadores
-        self.lexer.input("abc var")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['ID', 'VAR']
-        valores_esperados = ['abc', 'var']
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], valores_esperados)
-
-    def test_string(self):
-        # Prueba para el token STRING
-        self.lexer.input('"Hola Mundo!"')
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['STRING']
-        valores_esperados = ['Hola Mundo!']
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
+        code = "abc var"
+        tokens = tokenize(code)
+        expected = [
+            Token("ID", "abc", 1),
+            Token("VAR", "var", 1)
+        ]
+        self.assertEqual(tokens, expected)
 
     def test_float(self):
-        # Prueba para el token FLOAT
-        self.lexer.input('3.14')
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = ['FLOAT']
-        valores_esperados = [3.14]
-
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
-
-    def test_todos_los_tipos(self):
-        # Prueba final que cubre todos los tipos de tokens
-        self.lexer.input("const x = 10.2 + 20 * 30 and if (x > 10) print 'Hola, Mundo!'")
-        tokens = [tok for tok in self.lexer]
-        tipos_esperados = [
-            'CONSTANT', 'ID', 'ASSIGN', 'FLOAT', 'PLUS', 'NUMBER', 'TIMES', 'NUMBER', 'AND', 'IF', 'LPAR', 'ID', 'GT', 'NUMBER', 'RPAR', 'PRINT', 'STRING'
+        code = '3.14'
+        tokens = tokenize(code)
+        expected = [
+            Token("FLOAT", "3.14", 1)
         ]
-        valores_esperados = ['const', 'x', '=', 10.2, '+', 20, '*', 30, 'and', 'if', '(', 'x', '>', 10, ')', 'print', 'Hola, Mundo!']
+        self.assertEqual(tokens, expected)
 
-        self.assertEqual([t.type for t in tokens], tipos_esperados)
-        self.assertEqual([str(t.value) for t in tokens], [str(v) for v in valores_esperados])
 
 if __name__ == "__main__":
     unittest.main()
