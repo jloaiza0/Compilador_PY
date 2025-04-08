@@ -1,43 +1,29 @@
 {
     "type": "Program",
-    "declarations": [
+    "statements": [
         {
-            "type": "Print",
-            "expr": {
-                "type": "IntLiteral",
-                "value": 42
-            }
+            "type": "If",
+            "condition": {
+                "type": "Identifier",
+                "name": "x"
+            },
+            "then_block": {
+                "type": "Block",
+                "statements": []
+            },
+            "else_block": null
         },
         {
             "type": "If",
             "condition": {
-                "type": "BoolLiteral",
-                "value": true
+                "type": "Identifier",
+                "name": "in_mandelbrot"
             },
-            "then_branch": {
+            "then_block": {
                 "type": "Block",
-                "statements": [
-                    {
-                        "type": "Print",
-                        "expr": {
-                            "type": "IntLiteral",
-                            "value": 100
-                        }
-                    }
-                ]
+                "statements": []
             },
-            "else_branch": {
-                "type": "Block",
-                "statements": [
-                    {
-                        "type": "Print",
-                        "expr": {
-                            "type": "IntLiteral",
-                            "value": 0
-                        }
-                    }
-                ]
-            }
+            "else_block": null
         }
     ]
 }
