@@ -1,0 +1,43 @@
+{
+    "type": "Program",
+    "declarations": [
+        {
+            "type": "Print",
+            "expr": {
+                "type": "IntLiteral",
+                "value": 42
+            }
+        },
+        {
+            "type": "If",
+            "condition": {
+                "type": "BoolLiteral",
+                "value": true
+            },
+            "then_branch": {
+                "type": "Block",
+                "statements": [
+                    {
+                        "type": "Print",
+                        "expr": {
+                            "type": "IntLiteral",
+                            "value": 100
+                        }
+                    }
+                ]
+            },
+            "else_branch": {
+                "type": "Block",
+                "statements": [
+                    {
+                        "type": "Print",
+                        "expr": {
+                            "type": "IntLiteral",
+                            "value": 0
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

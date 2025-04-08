@@ -23,26 +23,8 @@ reserved = {
     'not': 'NOT'
 }
 
-# Definición de tokens con orden adecuado
-TOKEN_SPEC = [
-    ('CONSTANT', r'\bconst\b'),
-    ('VAR', r'\bvar\b'),
-    ('PRINT', r'\bprint\b'),
-    ('RETURN', r'\breturn\b'),
-    ('BREAK', r'\bbreak\b'),
-    ('IF', r'\bif\b'),
-    ('ELSE', r'\belse\b'),
-    ('WHILE', r'\bwhile\b'),
-    ('FOR', r'\bfor\b'),
-    ('FUNCTION', r'\bfunction\b'),
-    ('IMPORT', r'\bimport\b'),
-    ('TRUE', r'\btrue\b'),
-    ('FALSE', r'\bfalse\b'),
-    ('NULL', r'\bnull\b'),
-    ('FROM', r'\bfrom\b'),
-    ('AND', r'\band\b'),
-    ('OR', r'\bor\b'),
-    ('NOT', r'\bnot\b'),
+# Definición de tokens
+TOKEN_SPEC = [(name, rf'\b{kw}\b') for kw, name in reserved.items()] + [
     ('FLOAT', r'\d+\.\d*|\.\d+'),
     ('NUMBER', r'\d+'),
     ('ID', r'[a-zA-Z_][a-zA-Z_0-9]*'),
@@ -54,46 +36,69 @@ TOKEN_SPEC = [
     ('COLON', r':'), ('DOT', r'\.'), ('LBRACE', r'\{'), ('RBRACE', r'\}'),
     ('LSQUARE', r'\['), ('RSQUARE', r'\]'),
     ('COMMENT', r'\#.*'),
-    ('BLOCKCOMMENT', r'/\*.*?\*/'),
+    ('BLOCKCOMMENT', r'/\*[\s\S]*?\*/'),  # Acepta múltiples líneas
     ('WHITESPACE', r'\s+'),
     ('MISMATCH', r'.')
 ]
 
-# Crear la expresión regular combinada a partir de los tokens
+# Crear expresión regular combinada
 token_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in TOKEN_SPEC)
 
 @dataclass
 class Token:
-    type: str   # Tipo del token (por ejemplo, VAR, ID, ASSIGN, etc.)
-    value: str  # Cadena que coincide (lexema)
-    lineno: int # Número de línea donde se encontró el token
+    type: str
+    value: str
+    lineno: int
 
 def tokenize(text):
     """
-    Función que recibe un código fuente y retorna una lista de tokens.
-    Los tokens se generan utilizando la expresión regular compuesta.
+    Analiza el texto fuente y retorna una lista de tokens válidos.
+    Reporta errores para caracteres ilegales.
     """
     tokens = []
+    errors = []
     lineno = 1
+
     for match in re.finditer(token_regex, text, re.DOTALL):
-        kind = match.lastgroup  # Nombre del token
-        value = match.group()   # Lexema encontrado
+        kind = match.lastgroup
+        value = match.group()
+
         if kind == 'WHITESPACE':
             lineno += value.count('\n')
             continue
-        elif kind == 'COMMENT' or kind == 'BLOCKCOMMENT':
+        elif kind in ['COMMENT', 'BLOCKCOMMENT']:
             lineno += value.count('\n')
             continue
         elif kind == 'MISMATCH':
-            print(f"Línea {lineno}: Error - Caracter ilegal '{value}'")
+            errors.append(f"Línea {lineno}: Error - Caracter ilegal '{value}'")
             continue
-        if kind == 'ID' and value in reserved:
+        elif kind == 'ID' and value in reserved:
             kind = reserved[value]
+
         tokens.append(Token(kind, value, lineno))
+
+    for error in errors:
+        print(error)
+
     return tokens
 
-# Solo ejecutar el ejemplo si el archivo se ejecuta directamente
+# Clase adaptadora para usar el lexer desde el parser
+class GoxLangLexer:
+    def tokenize(self, source_code):
+        return tokenize(source_code)
+
+# Prueba si se ejecuta directamente
 if __name__ == "__main__":
-    test_code = 'var x = 3.12 and 4 * 2 # Esto es un comentario de línea\n/* Esto es un comentario de bloque */'
+    test_code = '''
+    var x = 3.12 and 4 * 2 # Comentario simple
+    /* Comentario
+       de bloque */
+    if (x > 2) {
+        print(x);
+    }
+    $  # Caracter ilegal para test
+    '''
+
     for tok in tokenize(test_code):
         print(tok)
+

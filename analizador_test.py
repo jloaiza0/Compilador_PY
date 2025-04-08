@@ -1,5 +1,5 @@
 import unittest
-from analizador import tokenize, Token
+from lexer import tokenize, Token
 
 class TestAnalizadorLexico(unittest.TestCase):
 
