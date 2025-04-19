@@ -334,7 +334,7 @@ class GoxLangParser:
 if __name__ == "__main__":
     codigo = """
     import func put_image(base int, width int, height int) int;
-
+    
     const xmin = -2.0;
     const xmax = 1.0;
     const ymin = -1.5;

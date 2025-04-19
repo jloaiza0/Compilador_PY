@@ -2,28 +2,44 @@
     "type": "Program",
     "statements": [
         {
-            "type": "If",
-            "condition": {
-                "type": "Identifier",
-                "name": "x"
-            },
-            "then_block": {
-                "type": "Block",
-                "statements": []
-            },
-            "else_block": null
+            "type": "Assignment",
+            "name": "xmax",
+            "value": {
+                "type": "IntLiteral",
+                "value": 1
+            }
         },
         {
-            "type": "If",
-            "condition": {
-                "type": "Identifier",
-                "name": "in_mandelbrot"
-            },
-            "then_block": {
-                "type": "Block",
-                "statements": []
-            },
-            "else_block": null
+            "type": "Assignment",
+            "name": "xmin",
+            "value": {
+                "type": "FloatLiteral",
+                "value": -2.0
+            }
+        },
+        {
+            "type": "Assignment",
+            "name": "ymin",
+            "value": {
+                "type": "FloatLiteral",
+                "value": -1.5
+            }
+        },
+        {
+            "type": "Assignment",
+            "name": "ymax",
+            "value": {
+                "type": "FloatLiteral",
+                "value": 1.5
+            }
+        },
+        {
+            "type": "Assignment",
+            "name": "threshhold",
+            "value": {
+                "type": "IntLiteral",
+                "value": 1000
+            }
         }
     ]
 }

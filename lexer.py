@@ -19,7 +19,8 @@ reserved = {
 }
 
 token_specification = [
-    ('NUMBER',      r'\d+(\.\d*)?'),
+    ('FLOAT', r'-?(\d+\.\d*|\.\d+)'),
+    ('NUMBER', r'-?\d+'),
     ('STRING',      r'"(\\.|[^"\\])*"'),
     ('CHAR',        r"'(\\.|[^'\\])'"),
     ('ASSIGN',      r'='),
