@@ -1,20 +1,5 @@
 [Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Expected ';' after assignment
-[Error] Ubicación desconocida: Unexpected token in expression: SEMI
 [Error] Ubicación desconocida: Unexpected statement
 [Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Expected ';' after assignment
-[Error] Ubicación desconocida: Unexpected token in expression: SEMI
 [Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Expected ';' after assignment
-[Error] Ubicación desconocida: Unexpected token in expression: SEMI
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Expected ';' after assignment
-[Error] Ubicación desconocida: Unexpected token in expression: SEMI
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Expected ';' after assignment
-[Error] Ubicación desconocida: Unexpected token in expression: SEMI
 [Error] Ubicación desconocida: Unexpected statement

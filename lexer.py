@@ -5,16 +5,23 @@ Token = namedtuple('Token', ['type', 'value', 'lineno'])
 
 reserved = {
     'if': 'IF',
+    'import': 'IMPORT',
+    'func': 'FUNC',
     'else': 'ELSE',
     'for': 'FOR',
     'while': 'WHILE',
     'break': 'BREAK',
     'continue': 'CONTINUE',
     'return': 'RETURN',
-    'fn': 'FUNCTION',
     'var': 'VAR',
     'true': 'TRUE',
     'false': 'FALSE',
+    'int': 'TYPE', #tipo de dato entero
+    'bool': 'TYPE', #tipo de dato booleano
+    'float': 'TYPE', #tipo de dato flotante
+    'char': 'TYPE', #tipo de dato caracter
+    'string': 'TYPE', #tipo de dato cadena
+    'void': 'TYPE', #tipo de dato vacio
     'null': 'NULL',
 }
 
@@ -35,6 +42,7 @@ token_specification = [
     ('TIMES',       r'\*'),
     ('DIVIDE',      r'/'),
     ('MOD',         r'%'),
+    ('POW',         r'\^'),
     ('LPAREN',      r'\('),
     ('RPAREN',      r'\)'),
     ('LBRACE',      r'\{'),
@@ -42,7 +50,7 @@ token_specification = [
     ('LBRACKET',    r'\['),
     ('RBRACKET',    r'\]'),
     ('COMMA',       r','),
-    ('SEMI',        r';'),
+    ('SEMICOLON',   r';'),
     ('ID',          r'[A-Za-z_][A-Za-z0-9_]*'),
     ('COMMENT',     r'//.*'),
     ('BLOCKCOMMENT', r'/\*[\s\S]*?\*/'),

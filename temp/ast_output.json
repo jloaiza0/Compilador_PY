@@ -2,12 +2,23 @@
     "type": "Program",
     "statements": [
         {
-            "type": "Assignment",
-            "name": "xmax",
-            "value": {
-                "type": "IntLiteral",
-                "value": 1
-            }
+            "type": "ImportFunctionDecl",
+            "name": "put_image",
+            "params": [
+                {
+                    "name": "base",
+                    "type": "int"
+                },
+                {
+                    "name": "width",
+                    "type": "int"
+                },
+                {
+                    "name": "height",
+                    "type": "int"
+                }
+            ],
+            "return_type": "int"
         },
         {
             "type": "Assignment",
@@ -15,6 +26,14 @@
             "value": {
                 "type": "FloatLiteral",
                 "value": -2.0
+            }
+        },
+        {
+            "type": "Assignment",
+            "name": "xmax",
+            "value": {
+                "type": "FloatLiteral",
+                "value": 1.0
             }
         },
         {
@@ -39,6 +58,114 @@
             "value": {
                 "type": "IntLiteral",
                 "value": 1000
+            }
+        },
+        {
+            "type": "FuncDecl",
+            "name": "in_mandelbrot",
+            "params": [
+                {
+                    "name": "x0",
+                    "type": "float"
+                },
+                {
+                    "name": "y0",
+                    "type": "float"
+                },
+                {
+                    "name": "n",
+                    "type": "int"
+                }
+            ],
+            "return_type": "bool",
+            "body": {
+                "type": "Block",
+                "statements": [
+                    {
+                        "type": "VarDecl",
+                        "name": "x",
+                        "var_type": "float",
+                        "value": {
+                            "type": "FloatLiteral",
+                            "value": 0.0
+                        }
+                    },
+                    {
+                        "type": "VarDecl",
+                        "name": "y",
+                        "var_type": "float",
+                        "value": {
+                            "type": "FloatLiteral",
+                            "value": 0.0
+                        }
+                    },
+                    {
+                        "type": "VarDecl",
+                        "name": "xtemp",
+                        "var_type": "float",
+                        "value": null
+                    },
+                    {
+                        "type": "While",
+                        "condition": {
+                            "type": "BinaryOp",
+                            "operator": "GT",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "n"
+                            },
+                            "right": {
+                                "type": "IntLiteral",
+                                "value": 0
+                            }
+                        },
+                        "body": {
+                            "type": "Block",
+                            "statements": [
+                                {
+                                    "type": "Assignment",
+                                    "name": "xtemp",
+                                    "value": {
+                                        "type": "BinaryOp",
+                                        "operator": "PLUS",
+                                        "left": {
+                                            "type": "BinaryOp",
+                                            "operator": "TIMES",
+                                            "left": {
+                                                "type": "BinaryOp",
+                                                "operator": "MINUS",
+                                                "left": {
+                                                    "type": "BinaryOp",
+                                                    "operator": "TIMES",
+                                                    "left": {
+                                                        "type": "Identifier",
+                                                        "name": "x"
+                                                    },
+                                                    "right": {
+                                                        "type": "Identifier",
+                                                        "name": "x"
+                                                    }
+                                                },
+                                                "right": {
+                                                    "type": "Identifier",
+                                                    "name": "y"
+                                                }
+                                            },
+                                            "right": {
+                                                "type": "Identifier",
+                                                "name": "y"
+                                            }
+                                        },
+                                        "right": {
+                                            "type": "Identifier",
+                                            "name": "x0"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
             }
         }
     ]

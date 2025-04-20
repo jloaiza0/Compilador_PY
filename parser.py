@@ -240,7 +240,7 @@ class GoxLangParser:
 
     def parse_term(self):
         expr = self.parse_factor()
-        while self.match("PLUS", "MINUS"):
+        while self.match("PLUS", "MINUS","DIVIDE","MOD","TIMES","POW"):
             operator = self.previous().type
             right = self.parse_factor()
             expr = BinaryOp(expr, operator, right)
@@ -341,58 +341,16 @@ if __name__ == "__main__":
     const ymax = 1.5;
     const threshhold = 1000;
 
-    func in_mandelbrot(x0 float, y0 float, n int) bool {
+    func in_mandelbrot(x0 float, y0 float, n int) bool 
+    {
         var x float = 0.0;
         var y float = 0.0;
         var xtemp float;
-        while n > 0 {
+        while n > 0 
+        {
             xtemp = x*x - y*y + x0;
-            y = 2.0*x*y + y0;
-            x = xtemp;
-            n = n - 1;
-            if x*x + y*y > 4.0 {
-                return false;
-            }
         }
-        return true;
     }
-
-    func mandel(width int, height int) int {
-        var dx float = (xmax - xmin)/float(width);
-        var dy float = (ymax - ymin)/float(height);
-        var ix int = 0;
-        var iy int = height-1;
-        var addr int = 0;
-        var memsize int = ^(width*height*4);
-
-        while iy >= 0 {
-            ix = 0;
-            while ix < width {
-                if in_mandelbrot(float(ix)*dx+xmin, float(iy)*dy+ymin, threshhold) {
-            `addr = '\xff';
-            `(addr+1) = '\x00';
-            `(addr+2) = '\x00';
-            `(addr+3) = '\xff';
-                } else {
-            `addr = '\xff';
-            `(addr+1) = '\xff';
-            `(addr+2) = '\xff';
-            `(addr+3) = '\xff';
-                }
-                addr = addr + 4;
-                ix = ix + 1;
-            }
-            iy = iy - 1;
-        }
-        return 0;
-    }
-
-    func make_plot(width int, height int) int {
-        var result int = mandel(width, height);
-        return put_image(0, width, height);
-    }
-
-    make_plot(800,800);
     """
 
     parser = GoxLangParser()
@@ -401,10 +359,11 @@ if __name__ == "__main__":
     if ast:
         print("AST generado correctamente:")
         print(json.dumps(ast.to_dict(), indent=4))
+        print("Errores detectados:")
+        for err in parser.error_manager.get_errors():
+            print(" -", err)
     else:
         print("Hubo errores al generar el AST.")
         print("Errores detectados:")
         for err in parser.error_manager.get_errors():
             print(" -", err)
-
-
