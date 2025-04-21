@@ -1,228 +1,236 @@
-# GoxLang_AST_nodes.py
-# AST Node Definitions for GoxLang
+class Program:
+    def __init__(self, statements):
+        self.statements = statements
 
-class ASTNode:
-    """Base class for all AST nodes."""
     def to_dict(self):
-        result = {"type": self.__class__.__name__}
-        for attr, value in self.__dict__.items():
-            if isinstance(value, ASTNode):
-                result[attr] = value.to_dict()
-            elif isinstance(value, list):
-                result[attr] = [v.to_dict() if isinstance(v, ASTNode) else v for v in value]
-            else:
-                result[attr] = value
-        return result
+        return {
+            "type": "Program",
+            "statements": [stmt.to_dict() for stmt in self.statements]
+        }
 
-# ---------------------------------------
-# Literals and Basic Expressions
-# ---------------------------------------
+class Print:
+    def __init__(self, expression):
+        self.expression = expression
 
-class IntLiteral(ASTNode):
+    def to_dict(self):
+        return {
+            "type": "Print",
+            "expression": self.expression.to_dict()
+        }
+
+class If:
+    def __init__(self, condition, then_block, else_block=None):
+        self.condition = condition
+        self.then_block = then_block
+        self.else_block = else_block
+
+    def to_dict(self):
+        return {
+            "type": "If",
+            "condition": self.condition.to_dict(),
+            "then": self.then_block.to_dict(),
+            "else": self.else_block.to_dict() if self.else_block else None
+        }
+
+class Block:
+    def __init__(self, statements):
+        self.statements = statements
+
+    def to_dict(self):
+        return {
+            "type": "Block",
+            "statements": [stmt.to_dict() for stmt in self.statements]
+        }
+
+class IntLiteral:
     def __init__(self, value):
         self.value = value
 
-    def __repr__(self):
-        return f"IntLiteral({self.value})"
+    def to_dict(self):
+        return {"type": "IntLiteral", "value": self.value}
 
-class FloatLiteral(ASTNode):
+class FloatLiteral:
     def __init__(self, value):
         self.value = value
 
-    def __repr__(self):
-        return f"FloatLiteral({self.value})"
+    def to_dict(self):
+        return {"type": "FloatLiteral", "value": self.value}
 
-class BoolLiteral(ASTNode):
+class StringLiteral:
     def __init__(self, value):
         self.value = value
 
-    def __repr__(self):
-        return f"BoolLiteral({self.value})"
+    def to_dict(self):
+        return {"type": "StringLiteral", "value": self.value}
 
-class StringLiteral(ASTNode):
+class BoolLiteral:
     def __init__(self, value):
         self.value = value
 
-    def __repr__(self):
-        return f"StringLiteral('{self.value}')"
+    def to_dict(self):
+        return {"type": "BoolLiteral", "value": self.value}
 
-# ---------------------------------------
-# Operations
-# ---------------------------------------
+class CharLiteral:
+    def __init__(self, value):
+        self.value = value
 
-class BinaryOp(ASTNode):
-    def __init__(self, operator, left, right):
-        self.operator = operator
-        self.left = left
-        self.right = right
+    def to_dict(self):
+        return {"type": "CharLiteral", "value": self.value}
 
-    def __repr__(self):
-        return f"BinaryOp('{self.operator}', {self.left}, {self.right})"
-
-class UnaryOp(ASTNode):
-    def __init__(self, operator, operand):
-        self.operator = operator
-        self.operand = operand
-
-    def __repr__(self):
-        return f"UnaryOp('{self.operator}', {self.operand})"
-
-class CompareOp(ASTNode):
-    def __init__(self, operator, left, right):
-        self.operator = operator
-        self.left = left
-        self.right = right
-
-    def __repr__(self):
-        return f"CompareOp('{self.operator}', {self.left}, {self.right})"
-
-class LogicalOp(ASTNode):
-    def __init__(self, operator, left, right):
-        self.operator = operator
-        self.left = left
-        self.right = right
-
-    def __repr__(self):
-        return f"LogicalOp('{self.operator}', {self.left}, {self.right})"
-
-# ---------------------------------------
-# Variables and Identifiers
-# ---------------------------------------
-
-class Identifier(ASTNode):
+class Identifier:
     def __init__(self, name):
         self.name = name
 
-    def __repr__(self):
-        return f"Identifier('{self.name}')"
+    def to_dict(self):
+        return {"type": "Identifier", "name": self.name}
 
-class Assignment(ASTNode):
-    def __init__(self, target, expr):
-        self.target = target
-        self.expr = expr
+class TypeCast:
+    def __init__(self, cast_type, expression):
+        self.cast_type = cast_type
+        self.expression = expression
 
-    def __repr__(self):
-        return f"Assignment({self.target}, {self.expr})"
+    def to_dict(self):
+        return {
+            "type": "TypeCast",
+            "cast_type": self.cast_type,
+            "expression": self.expression.to_dict()
+        }
 
-# ---------------------------------------
-# Declarations
-# ---------------------------------------
+class MemoryAccess:
+    def __init__(self, expression):
+        self.expression = expression
 
-class VarDecl(ASTNode):
-    def __init__(self, name, var_type, init_expr=None):
+    def to_dict(self):
+        return {
+            "type": "MemoryAccess",
+            "expression": self.expression.to_dict()
+        }
+
+class ImportFunctionDecl:
+    def __init__(self, name, params, return_type):
         self.name = name
-        self.var_type = var_type
-        self.init_expr = init_expr
+        self.params = params  # list of (param_name, param_type)
+        self.return_type = return_type
 
-    def __repr__(self):
-        return f"VarDecl('{self.name}', '{self.var_type}', {self.init_expr})"
+    def to_dict(self):
+        return {
+            "type": "ImportFunctionDecl",
+            "name": self.name,
+            "params": [{"name": name, "type": type_} for name, type_ in self.params],
+            "return_type": self.return_type
+        }
 
-class ConstDecl(ASTNode):
+class ConstDecl:
     def __init__(self, name, value):
         self.name = name
         self.value = value
 
-    def __repr__(self):
-        return f"ConstDecl('{self.name}', {self.value})"
+    def to_dict(self):
+        return {
+            "type": "ConstDecl",
+            "name": self.name,
+            "value": self.value.to_dict()
+        }
 
-# ---------------------------------------
-# Control Structures
-# ---------------------------------------
+class VarDecl:
+    def __init__(self, name, var_type, value=None):
+        self.name = name
+        self.var_type = var_type
+        self.value = value
 
-class If(ASTNode):
-    def __init__(self, condition, then_branch, else_branch=None):
-        self.condition = condition
-        self.then_branch = then_branch
-        self.else_branch = else_branch
+    def to_dict(self):
+        return {
+            "type": "VarDecl",
+            "name": self.name,
+            "var_type": self.var_type,
+            "value": self.value.to_dict() if self.value else None
+        }
 
-    def __repr__(self):
-        return f"If({self.condition}, {self.then_branch}, {self.else_branch})"
+class Assignment:
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
 
-class While(ASTNode):
+    def to_dict(self):
+        return {
+            "type": "Assignment",
+            "name": self.name,
+            "value": self.value.to_dict()
+        }
+
+class FuncDecl:
+    def __init__(self, name, params, return_type, body):
+        self.name = name
+        self.params = params
+        self.return_type = return_type
+        self.body = body
+
+    def to_dict(self):
+        return {
+            "type": "FuncDecl",
+            "name": self.name,
+            "params": [{"name": p[0], "type": p[1]} for p in self.params],
+            "return_type": self.return_type,
+            "body": self.body.to_dict()
+        }
+
+class Return:
+    def __init__(self, value):
+        self.value = value
+
+    def to_dict(self):
+        return {
+            "type": "Return",
+            "value": self.value.to_dict() if self.value else None
+        }
+
+class While:
     def __init__(self, condition, body):
         self.condition = condition
         self.body = body
 
-    def __repr__(self):
-        return f"While({self.condition}, {self.body})"
+    def to_dict(self):
+        return {
+            "type": "While",
+            "condition": self.condition.to_dict(),
+            "body": self.body.to_dict()
+        }
 
-class For(ASTNode):
-    def __init__(self, init, condition, update, body):
-        self.init = init
-        self.condition = condition
-        self.update = update
-        self.body = body
+class BinaryOp:
+    def __init__(self, left, operator, right):
+        self.left = left
+        self.operator = operator
+        self.right = right
 
-    def __repr__(self):
-        return f"For({self.init}, {self.condition}, {self.update}, {self.body})"
+    def to_dict(self):
+        return {
+            "type": "BinaryOp",
+            "operator": self.operator,
+            "left": self.left.to_dict(),
+            "right": self.right.to_dict()
+        }
 
-class Break(ASTNode):
-    def __repr__(self):
-        return "Break()"
-
-class Continue(ASTNode):
-    def __repr__(self):
-        return "Continue()"
-
-# ---------------------------------------
-# Functions
-# ---------------------------------------
-
-class FunctionDecl(ASTNode):
-    def __init__(self, name, parameters, return_type, body):
-        self.name = name
-        self.parameters = parameters
-        self.return_type = return_type
-        self.body = body
-
-    def __repr__(self):
-        return f"FunctionDecl('{self.name}', {self.parameters}, '{self.return_type}', {self.body})"
-
-class Parameter(ASTNode):
-    def __init__(self, name, param_type):
-        self.name = name
-        self.param_type = param_type
-
-    def __repr__(self):
-        return f"Parameter('{self.name}', '{self.param_type}')"
-
-class Return(ASTNode):
-    def __init__(self, expr):
-        self.expr = expr
-
-    def __repr__(self):
-        return f"Return({self.expr})"
-
-class FunctionCall(ASTNode):
+class FuncCall:
     def __init__(self, name, args):
         self.name = name
         self.args = args
 
-    def __repr__(self):
-        return f"FunctionCall('{self.name}', {self.args})"
+    def to_dict(self):
+        return {
+            "type": "FuncCall",
+            "name": self.name,
+            "args": [arg.to_dict() for arg in self.args]
+        }
 
-# ---------------------------------------
-# Others
-# ---------------------------------------
+# Alias for compatibility with parser import
+Call = FuncCall
 
-class Block(ASTNode):
-    def __init__(self, statements):
-        self.statements = statements
+class Break:
+    def to_dict(self):
+        return {"type": "Break"}
 
-    def __repr__(self):
-        return f"Block({self.statements})"
+class Continue:
+    def to_dict(self):
+        return {"type": "Continue"}
 
-class Print(ASTNode):
-    def __init__(self, expr):
-        self.expr = expr
-
-    def __repr__(self):
-        return f"Print({self.expr})"
-
-class Program(ASTNode):
-    def __init__(self, declarations):
-        self.declarations = declarations
-
-    def __repr__(self):
-        return f"Program({self.declarations})"
 

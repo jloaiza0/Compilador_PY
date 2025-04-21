@@ -1,60 +1,68 @@
 import re
-from dataclasses import dataclass
+from collections import namedtuple
 
-# Diccionario de palabras reservadas
+Token = namedtuple('Token', ['type', 'value', 'lineno'])
+
 reserved = {
-    'const': 'CONSTANT',
-    'var': 'VAR',
-    'print': 'PRINT',
     'if': 'IF',
+    'import': 'IMPORT',
+    'func': 'FUNC',
     'else': 'ELSE',
-    'while': 'WHILE',
     'for': 'FOR',
-    'function': 'FUNCTION',
+    'while': 'WHILE',
+    'break': 'BREAK',
+    'continue': 'CONTINUE',
     'return': 'RETURN',
+    'var': 'VAR',
     'true': 'TRUE',
     'false': 'FALSE',
+    'int': 'TYPE', #tipo de dato entero
+    'bool': 'TYPE', #tipo de dato booleano
+    'float': 'TYPE', #tipo de dato flotante
+    'char': 'TYPE', #tipo de dato caracter
+    'string': 'TYPE', #tipo de dato cadena
+    'void': 'TYPE', #tipo de dato vacio
     'null': 'NULL',
-    'break': 'BREAK',
-    'import': 'IMPORT',
-    'from': 'FROM',
-    'and': 'AND',
-    'or': 'OR',
-    'not': 'NOT'
 }
 
-# Definición de tokens
-TOKEN_SPEC = [(name, rf'\b{kw}\b') for kw, name in reserved.items()] + [
-    ('FLOAT', r'\d+\.\d*|\.\d+'),
-    ('NUMBER', r'\d+'),
-    ('ID', r'[a-zA-Z_][a-zA-Z_0-9]*'),
-    ('LTE', r'<='), ('GTE', r'>='), ('EQ', r'=='), ('NEQ', r'!='),
-    ('LT', r'<'), ('GT', r'>'), ('PLUS', r'\+'), ('MINUS', r'-'),
-    ('MULTIPLY', r'\*'), ('DIVIDE', r'/'), ('POW', r'\^'), ('MOD', r'%'),
-    ('ASSIGN', r'='),
-    ('LPAR', r'\('), ('RPAR', r'\)'), ('COMMA', r','), ('SEMICOLON', r';'),
-    ('COLON', r':'), ('DOT', r'\.'), ('LBRACE', r'\{'), ('RBRACE', r'\}'),
-    ('LSQUARE', r'\['), ('RSQUARE', r'\]'),
-    ('COMMENT', r'\#.*'),
-    ('BLOCKCOMMENT', r'/\*[\s\S]*?\*/'),  # Acepta múltiples líneas
-    ('WHITESPACE', r'\s+'),
-    ('MISMATCH', r'.')
+token_specification = [
+    ('FLOAT', r'-?(\d+\.\d*|\.\d+)'),
+    ('NUMBER', r'-?\d+'),
+    ('STRING',      r'"(\\.|[^"\\])*"'),
+    ('CHAR',        r"'(\\.|[^'\\])'"),
+    ('ASSIGN',      r'='),
+    ('EQ',          r'=='),
+    ('NE',          r'!='),
+    ('LE',          r'<='),
+    ('GE',          r'>='),
+    ('LT',          r'<'),
+    ('GT',          r'>'),
+    ('PLUS',        r'\+'),
+    ('MINUS',       r'-'),
+    ('TIMES',       r'\*'),
+    ('DIVIDE',      r'/'),
+    ('MOD',         r'%'),
+    ('POW',         r'\^'),
+    ('LPAREN',      r'\('),
+    ('RPAREN',      r'\)'),
+    ('LBRACE',      r'\{'),
+    ('RBRACE',      r'\}'),
+    ('LBRACKET',    r'\['),
+    ('RBRACKET',    r'\]'),
+    ('COMMA',       r','),
+    ('SEMICOLON',   r';'),
+    ('ID',          r'[A-Za-z_][A-Za-z0-9_]*'),
+    ('COMMENT',     r'//.*'),
+    ('BLOCKCOMMENT', r'/\*[\s\S]*?\*/'),
+    ('WHITESPACE',  r'[ \t\r\n]+'),
+    ('MISMATCH',    r'.'),
 ]
 
-# Crear expresión regular combinada
-token_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in TOKEN_SPEC)
+token_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in token_specification)
 
-@dataclass
-class Token:
-    type: str
-    value: str
-    lineno: int
+# --- FUNCION PRINCIPAL DE TOKENIZACIÓN ---
 
 def tokenize(text):
-    """
-    Analiza el texto fuente y retorna una lista de tokens válidos.
-    Reporta errores para caracteres ilegales.
-    """
     tokens = []
     errors = []
     lineno = 1
@@ -74,31 +82,26 @@ def tokenize(text):
             continue
         elif kind == 'ID' and value in reserved:
             kind = reserved[value]
+        elif kind == 'CHAR':
+            if len(value) < 3:
+                errors.append(f"Línea {lineno}: Error - Literal de carácter inválido {value}")
+                continue
+            try:
+                value = eval(value)  # convierte '\n' -> salto de línea, etc.
+            except Exception:
+                errors.append(f"Línea {lineno}: Error - Literal de carácter inválido {value}")
+                continue
 
         tokens.append(Token(kind, value, lineno))
 
-    for error in errors:
-        print(error)
+    return tokens, errors
 
-    return tokens
+# --- CLASE WRAPPER DEL LEXER ---
 
-# Clase adaptadora para usar el lexer desde el parser
 class GoxLangLexer:
     def tokenize(self, source_code):
-        return tokenize(source_code)
+        return tokenize(source_code)  # retorna tokens, errores
 
-# Prueba si se ejecuta directamente
-if __name__ == "__main__":
-    test_code = '''
-    var x = 3.12 and 4 * 2 # Comentario simple
-    /* Comentario
-       de bloque */
-    if (x > 2) {
-        print(x);
-    }
-    $  # Caracter ilegal para test
-    '''
 
-    for tok in tokenize(test_code):
-        print(tok)
+
 

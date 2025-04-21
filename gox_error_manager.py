@@ -20,6 +20,17 @@ class ErrorManager:
         }
         self._log.append(entrada)
 
+    def add_error(self, mensaje):
+        """
+        Versión simplificada para registrar errores sin info detallada.
+        Se puede usar para excepciones generales.
+        """
+        self._log.append({
+            'descripcion': mensaje,
+            'linea': -1,
+            'columna': None
+        })
+
     def hay_errores(self):
         """Devuelve True si hay errores almacenados."""
         return len(self._log) > 0
@@ -27,7 +38,7 @@ class ErrorManager:
     def mostrar(self):
         """Muestra los errores acumulados en formato legible."""
         for error in self._log:
-            ubicacion = f"Línea {error['linea']}"
+            ubicacion = f"Línea {error['linea']}" if error['linea'] != -1 else "Ubicación desconocida"
             if error['columna'] is not None:
                 ubicacion += f", Columna {error['columna']}"
             print(f"[Error] {ubicacion}: {error['descripcion']}")
@@ -40,19 +51,24 @@ class ErrorManager:
         """Devuelve los errores como lista de strings para guardar en archivo."""
         mensajes = []
         for error in self._log:
-            ubicacion = f"Línea {error['linea']}"
+            ubicacion = f"Línea {error['linea']}" if error['linea'] != -1 else "Ubicación desconocida"
             if error['columna'] is not None:
                 ubicacion += f", Columna {error['columna']}"
             mensajes.append(f"[Error] {ubicacion}: {error['descripcion']}")
         return mensajes
-
-
 # Ejemplo de uso
 if __name__ == "__main__":
     errores = ErrorManager()
-    errores.registrar("Variable no declarada 'foo'", 4)
-    errores.registrar("Tipo incompatible en comparación", 12, 6)
-
-    if errores.hay_errores():
-        print("Se detectaron errores durante la compilación:\n")
-        errores.mostrar()
+    
+    # Error con línea y columna conocida
+    errores.registrar("Variable no declarada 'x'", 10, 5)
+    
+    # Error con solo línea
+    errores.registrar("Falta ';' al final de la instrucción", 12)
+    
+    # Error general sin ubicación (por ejemplo, una excepción)
+    errores.add_error("Error inesperado durante el análisis del programa")
+    
+    # Mostrar errores en consola
+    print("Errores detectados:")
+    errores.mostrar()
