@@ -1,5 +1,3 @@
-# Nodes_AST.py - Definiciones de Nodos para el Árbol de Sintaxis Abstracta (AST)
-
 class ASTNode:
     """Clase base para todos los nodos del AST."""
     pass

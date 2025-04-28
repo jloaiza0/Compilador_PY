@@ -1,4 +1,3 @@
-# main.py
 import tkinter as tk
 from tkinter import filedialog
 import subprocess
@@ -11,9 +10,10 @@ from Interpreter import Interpreter
 
 def runReaderScript(filename):
     try:
+        # Obtiene la ruta del directorio donde se encuentra este archivo
         script_dir = os.path.dirname(os.path.abspath(__file__))
         reader_path = os.path.join(script_dir, 'Reader_script.py')
-        # Usa el mismo intérprete de Python que ejecuta la GUI
+        # Usa el mismo intérprete de Python que está ejecutando la GUI
         result = subprocess.run(
             [sys.executable, reader_path, filename],
             capture_output=True,
@@ -22,18 +22,21 @@ def runReaderScript(filename):
         )
         print(result.stdout)
     except subprocess.CalledProcessError as e:
+        # Muestra el error en caso de fallo al ejecutar el script
         print(e.stderr)
 
 def openFileDialog():
+    # Abre un cuadro de diálogo para seleccionar un archivo
     filename = filedialog.askopenfilename(
         initialdir=".",
-        title="Select a file",
-        filetypes=(("Gox files", "*.gox"), ("all files", "*.*"))
+        title="Seleccionar un archivo",
+        filetypes=(("Archivos Gox", "*.gox"), ("Todos los archivos", "*.*"))
     )
     if filename:
         runReaderScript(filename)
 
 def main():
+    # Función principal que ejecuta las fases: lectura, análisis sintáctico, semántico e interpretación
     script = read_script(sys.argv[1])
     ast = Parser(script).parse()
     SemanticChecker().visit(ast)
@@ -41,10 +44,12 @@ def main():
     return 0
 
 if __name__ == "__main__":
+    # Configura la ventana principal de la interfaz gráfica
     root = tk.Tk()
     root.title("Compiler GUI")
 
-    button = tk.Button(root, text="Select Gox File", command=openFileDialog)
+    # Crea un botón para seleccionar archivos .gox
+    button = tk.Button(root, text="Seleccionar archivo Gox", command=openFileDialog)
     button.pack(pady=20)
 
     root.mainloop()

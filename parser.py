@@ -1,5 +1,3 @@
-# Parser.py - Implementación del Analizador Sintáctico para GoxLang
-
 try:
     from Lexer import *
     from ASTnodes import *
