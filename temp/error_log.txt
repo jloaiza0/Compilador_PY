@@ -1,5 +1,30 @@
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
-[Error] Ubicación desconocida: Unexpected statement
+[ERROR] (line 4): Unexpected statement
+[ERROR] (line 5): Unexpected statement
+[ERROR] (line 6): Unexpected statement
+[ERROR] (line 7): Unexpected statement
+[ERROR] (line 8): Unexpected statement
+[ERROR] (line 14): Condition must be a boolean expression
+[ERROR] (line 15): Expected ';' after assignment
+[ERROR] (line 15): Unexpected token in expression: TIMES
+[ERROR] (line 15): Unexpected statement
+[ERROR] (line 15): Unexpected statement
+[ERROR] (line 15): Unexpected token in expression: TIMES
+[ERROR] (line 15): Unexpected statement
+[ERROR] (line 16): Expected ';' after assignment
+[ERROR] (line 16): Unexpected token in expression: TIMES
+[ERROR] (line 16): Unexpected statement
+[ERROR] (line 16): Unexpected statement
+[ERROR] (line 16): Unexpected token in expression: TIMES
+[ERROR] (line 16): Unexpected statement
+[ERROR] (line 19): Condition must be a boolean expression
+[ERROR] (line 19): Expected '{' at beginning of block
+[ERROR] (line 19): Unexpected token in expression: TIMES
+[ERROR] (line 19): Unexpected statement
+[ERROR] (line 19): Unexpected statement
+[ERROR] (line 19): Unexpected token in expression: TIMES
+[ERROR] (line 19): Unexpected statement
+[ERROR] (line 19): Unexpected statement
+[ERROR] (line 19): Unexpected token in expression: LBRACE
+[ERROR] (line 19): Unexpected statement
+[ERROR] (line 24): Unexpected token in expression: RBRACE
+[ERROR] (line 24): Unexpected statement

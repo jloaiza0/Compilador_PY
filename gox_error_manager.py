@@ -1,74 +1,142 @@
-# gox_error_manager.py
-# Manejador personalizado de errores para el compilador de GoxLang
-
 class ErrorManager:
     def __init__(self):
-        # Lista de mensajes de error registrados
-        self._log = []
-
-    def registrar(self, descripcion, linea, columna=None):
+        # Lista de errores registrados
+        self._errors = []
+        
+    def add_error(self, message, lineno=None, columna=None):
         """
-        Guarda un error en el registro.
-        - descripcion: mensaje de lo ocurrido
-        - linea: número de línea
-        - columna: número de columna (opcional)
+        Registra un nuevo error en el sistema.
+        
+        Args:
+            message (str): Mensaje descriptivo del error
+            lineno (int, optional): Número de línea donde ocurrió el error
+            columna (int, optional): Número de columna donde ocurrió el error
         """
-        entrada = {
-            'descripcion': descripcion,
-            'linea': linea,
+        error_info = {
+            'type': 'error',
+            'message': message,
+            'lineno': lineno,
             'columna': columna
         }
-        self._log.append(entrada)
-
-    def add_error(self, mensaje):
+        self._errors.append(error_info)
+    
+    def add_warning(self, message, lineno=None, columna=None):
         """
-        Versión simplificada para registrar errores sin info detallada.
-        Se puede usar para excepciones generales.
+        Registra una advertencia en el sistema.
+        
+        Args:
+            message (str): Mensaje descriptivo de la advertencia
+            lineno (int, optional): Número de línea
+            columna (int, optional): Número de columna
         """
-        self._log.append({
-            'descripcion': mensaje,
-            'linea': -1,
-            'columna': None
-        })
-
-    def hay_errores(self):
-        """Devuelve True si hay errores almacenados."""
-        return len(self._log) > 0
-
-    def mostrar(self):
-        """Muestra los errores acumulados en formato legible."""
-        for error in self._log:
-            ubicacion = f"Línea {error['linea']}" if error['linea'] != -1 else "Ubicación desconocida"
-            if error['columna'] is not None:
-                ubicacion += f", Columna {error['columna']}"
-            print(f"[Error] {ubicacion}: {error['descripcion']}")
-
-    def limpiar(self):
-        """Limpia la lista de errores."""
-        self._log.clear()
-
+        warning_info = {
+            'type': 'warning',
+            'message': message,
+            'lineno': lineno,
+            'columna': columna
+        }
+        self._errors.append(warning_info)
+    
+    def has_errors(self):
+        """Indica si hay errores registrados"""
+        return any(e['type'] == 'error' for e in self._errors)
+    
+    def has_warnings(self):
+        """Indica si hay advertencias registradas"""
+        return any(e['type'] == 'warning' for e in self._errors)
+    
+    def clear(self):
+        """Limpia todos los errores y advertencias"""
+        self._errors.clear()
+    
     def get_errors(self):
-        """Devuelve los errores como lista de strings para guardar en archivo."""
-        mensajes = []
-        for error in self._log:
-            ubicacion = f"Línea {error['linea']}" if error['linea'] != -1 else "Ubicación desconocida"
-            if error['columna'] is not None:
-                ubicacion += f", Columna {error['columna']}"
-            mensajes.append(f"[Error] {ubicacion}: {error['descripcion']}")
-        return mensajes
+        """Devuelve una lista con todos los errores formateados"""
+        return self._format_messages('error')
+    
+    def get_warnings(self):
+        """Devuelve una lista con todas las advertencias formateadas"""
+        return self._format_messages('warning')
+    
+    def get_all(self):
+        """Devuelve todos los mensajes (errores y advertencias)"""
+        return self._format_messages()
+    
+    def print_errors(self):
+        """Imprime todos los errores en la consola"""
+        for err in self.get_errors():
+            print(err)
+    
+    def print_warnings(self):
+        """Imprime todas las advertencias en la consola"""
+        for warn in self.get_warnings():
+            print(warn)
+    
+    def print_all(self):
+        """Imprime todos los mensajes en la consola"""
+        for msg in self.get_all():
+            print(msg)
+    
+    def _format_messages(self, msg_type=None):
+        """
+        Formatea los mensajes para su visualización.
+        
+        Args:
+            msg_type (str, optional): 'error', 'warning' o None para todos
+        """
+        formatted = []
+        for msg in self._errors:
+            if msg_type and msg['type'] != msg_type:
+                continue
+                
+            location = []
+            if msg['lineno'] is not None:
+                location.append(f"line {msg['lineno']}")
+            if msg['columna'] is not None:
+                location.append(f"col {msg['columna']}")
+            
+            loc_str = f" ({', '.join(location)})" if location else ""
+            formatted.append(f"[{msg['type'].upper()}]{loc_str}: {msg['message']}")
+        
+        return formatted
+    
+    # Métodos de compatibilidad (pueden eliminarse en versiones futuras)
+    def registrar(self, descripcion, linea, columna=None):
+        """Alias para add_error (compatibilidad)"""
+        self.add_error(descripcion, linea, columna)
+    
+    def hay_errores(self):
+        """Alias para has_errors (compatibilidad)"""
+        return self.has_errors()
+    
+    def mostrar(self):
+        """Alias para print_all (compatibilidad)"""
+        self.print_all()
+    
+    def limpiar(self):
+        """Alias para clear (compatibilidad)"""
+        self.clear()
+
+
 # Ejemplo de uso
 if __name__ == "__main__":
-    errores = ErrorManager()
+    em = ErrorManager()
     
-    # Error con línea y columna conocida
-    errores.registrar("Variable no declarada 'x'", 10, 5)
+    # Registrar algunos errores y advertencias
+    em.add_error("Variable 'x' no declarada", 10, 5)
+    em.add_error("Tipos incompatibles en expresión", 15)
+    em.add_warning("Variable 'y' no utilizada", 20, 8)
+    em.add_error("Error de sintaxis")
     
-    # Error con solo línea
-    errores.registrar("Falta ';' al final de la instrucción", 12)
+    # Mostrar resultados
+    print("=== Todos los mensajes ===")
+    em.print_all()
     
-    # Error general sin ubicación (por ejemplo, una excepción)
-    errores.add_error("Error inesperado durante el análisis del programa")
+    print("\n=== Solo errores ===")
+    em.print_errors()
     
-    # Mostrar errores en consola
-    print("Errores detectados:")
-    errores.mostrar()
+    print("\n=== Solo advertencias ===")
+    em.print_warnings()
+    
+    print("\n=== Formateados para archivo ===")
+    for msg in em.get_all():
+        print(msg)
