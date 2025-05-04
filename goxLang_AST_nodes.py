@@ -256,26 +256,29 @@ class Return:
         return visitor.visit_Return(self, env)
 
 class While:
-    def __init__(self, condition, body):
+    def __init__(self, condition, body, lineno=None):
         self.condition = condition
         self.body = body
+        self.lineno = lineno
         self.dtype = None
 
+    def accept(self, visitor, env):
+        return visitor.visit_While(self, env)
+    
     def to_dict(self):
         return {
             "type": "While",
             "condition": self.condition.to_dict(),
-            "body": self.body.to_dict()
+            "body": self.body.to_dict(),
+            "lineno": self.lineno
         }
 
-    def accept(self, visitor, env):
-        return visitor.visit_While(self, env)
-
 class BinaryOp:
-    def __init__(self, left, operator, right):
+    def __init__(self, left, operator, right, lineno=None):
         self.left = left
         self.operator = operator
         self.right = right
+        self.lineno = lineno
         self.dtype = None
 
     def to_dict(self):

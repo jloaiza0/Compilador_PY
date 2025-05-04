@@ -1,20 +1,22 @@
-# check.py
-from typing import Any, Optional
-from goxLang_AST_nodes import *
+#!/usr/bin/env python3
+import sys
+from typing import *
 from symtab import Symtab
-from typesys import (
-    check_binop, check_unaryop, can_assign,
-    is_valid_type, get_type_info, TYPE_HIERARCHY
-)
-from gox_error_manager import ErrorManager
+from typesys import *
+from gox_error_manager import *
+from goxLang_AST_nodes import *
+from parser import Parser
+from lexer import Lexer
 
 class TypeChecker:
     def __init__(self):
         self.error_manager = ErrorManager()
-        self.current_function_return_type = None
-        self.in_loop = False
+        self.current_function_return_type: Optional[str] = None
+        self.in_loop: bool = False
+        self.current_symtab: Optional[Symtab] = None
+        self.show_symbol_table = True  # Control para mostrar tabla de símbolos
 
-    def check(self, node: Program) -> bool:
+    def check(self, node) -> bool:
         """
         Realiza el análisis de tipos en el programa completo.
         
@@ -22,294 +24,304 @@ class TypeChecker:
             bool: True si no hay errores de tipos, False si se encontraron errores
         """
         global_env = Symtab("global")
+        self.current_symtab = global_env
         node.accept(self, global_env)
+        
+        # Mostrar tabla de símbolos si está habilitado
+        if self.show_symbol_table:
+            print("\n=== Tabla de Símbolos ===")
+            global_env.print(show_all_scopes=True)
+            
         return not self.error_manager.has_errors()
 
-    def visit_Program(self, node: Program, env: Symtab) -> None:
+    def visit_Program(self, node, env):
         for stmt in node.statements:
             stmt.accept(self, env)
+        return None
 
-    def visit_Print(self, node: Print, env: Symtab) -> None:
-        node.expression.accept(self, env)
-        node.dtype = node.expression.dtype
-
-    def visit_If(self, node: If, env: Symtab) -> None:
-        # Verificar condición
-        node.condition.accept(self, env)
-        if node.condition.dtype != 'bool':
-            self.error_manager.add_error(
-                f"Condition in if statement must be bool, got {node.condition.dtype}",
-                getattr(node, 'lineno', None)
-            )
-
-        # Verificar bloque then
-        then_env = Symtab("if_then", env)
-        node.then_block.accept(self, then_env)
-
-        # Verificar bloque else si existe
-        if node.else_block:
-            else_env = Symtab("if_else", env)
-            node.else_block.accept(self, else_env)
-
-        node.dtype = 'void'
-
-    def visit_Block(self, node: Block, env: Symtab) -> None:
-        block_env = Symtab("block", env)
-        for stmt in node.statements:
-            stmt.accept(self, block_env)
-        node.dtype = 'void'
-
-    def visit_IntLiteral(self, node: IntLiteral, env: Symtab) -> None:
-        node.dtype = 'int'
-
-    def visit_FloatLiteral(self, node: FloatLiteral, env: Symtab) -> None:
-        node.dtype = 'float'
-
-    def visit_StringLiteral(self, node: StringLiteral, env: Symtab) -> None:
-        node.dtype = 'string'
-
-    def visit_BoolLiteral(self, node: BoolLiteral, env: Symtab) -> None:
-        node.dtype = 'bool'
-
-    def visit_CharLiteral(self, node: CharLiteral, env: Symtab) -> None:
-        node.dtype = 'char'
-
-    def visit_Identifier(self, node: Identifier, env: Symtab) -> None:
-        try:
-            symbol = env.get(node.name)
-            node.dtype = getattr(symbol, 'dtype', None)
-            if node.dtype is None:
-                self.error_manager.add_error(
-                    f"Symbol '{node.name}' has no type information",
-                    getattr(node, 'lineno', None)
-                )
-        except Symtab.SymbolNotFoundError:
-            self.error_manager.add_error(
-                f"Undefined variable '{node.name}'",
-                getattr(node, 'lineno', None)
-            )
-            node.dtype = 'error'
-
-    def visit_TypeCast(self, node: TypeCast, env: Symtab) -> None:
-        node.expression.accept(self, env)
-        if not is_valid_type(node.cast_type):
-            self.error_manager.add_error(
-                f"Invalid type in cast: '{node.cast_type}'",
-                getattr(node, 'lineno', None)
-            )
-        node.dtype = node.cast_type
-
-    def visit_MemoryAccess(self, node: MemoryAccess, env: Symtab) -> None:
-        node.expression.accept(self, env)
-        # Asumimos que es un puntero a int por defecto
-        node.dtype = 'int'
-
-    def visit_ImportFunctionDecl(self, node: ImportFunctionDecl, env: Symtab) -> None:
-        if not is_valid_type(node.return_type):
-            self.error_manager.add_error(
-                f"Invalid return type '{node.return_type}' for function '{node.name}'",
-                getattr(node, 'lineno', None)
-            )
-
+    def visit_VarDecl(self, node, env):
         try:
             env.add(node.name, node)
+            if node.value:
+                node.value.accept(self, env)
+                if node.value.dtype is None:
+                    self.error_manager.add_error(
+                        f"Invalid initializer for variable '{node.name}'",
+                        getattr(node, 'lineno', None))
+                elif node.var_type == 'int' and node.value.dtype == 'float':
+                    # Conversión explícita de float a int
+                    node.value = TypeCast('int', node.value)
+                elif not can_assign(node.var_type, node.value.dtype):
+                    self.error_manager.add_error(
+                        f"Cannot initialize {node.var_type} variable with {node.value.dtype} value",
+                        getattr(node, 'lineno', None))
         except Symtab.SymbolDefinedError as e:
             self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
-        except Symtab.SymbolConflictError as e:
-            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
+        return None
 
-        node.dtype = node.return_type
-
-    def visit_ConstDecl(self, node: ConstDecl, env: Symtab) -> None:
-        node.value.accept(self, env)
-        node.dtype = node.value.dtype
-
+    def visit_ConstDecl(self, node, env):
         try:
-            env.add(node.name, node)
-        except Symtab.SymbolDefinedError as e:
-            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
-        except Symtab.SymbolConflictError as e:
-            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
-
-    def visit_VarDecl(self, node: VarDecl, env: Symtab) -> None:
-        if not is_valid_type(node.var_type):
-            self.error_manager.add_error(
-                f"Invalid variable type '{node.var_type}' for '{node.name}'",
-                getattr(node, 'lineno', None)
-            )
-
-        if node.value:
             node.value.accept(self, env)
-            if not can_assign(node.var_type, node.value.dtype):
-                self.error_manager.add_error(
-                    f"Cannot assign {node.value.dtype} to variable '{node.name}' of type {node.var_type}",
-                    getattr(node, 'lineno', None)
-                )
-
-        node.dtype = node.var_type
-
-        try:
+            node.dtype = node.value.dtype
             env.add(node.name, node)
         except Symtab.SymbolDefinedError as e:
             self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
-        except Symtab.SymbolConflictError as e:
-            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
+        return None
 
-    def visit_Assignment(self, node: Assignment, env: Symtab) -> None:
-        node.value.accept(self, env)
-        
+    def visit_Assignment(self, node, env):
+        # Verificar que la variable existe
         try:
             var_info = env.get(node.name)
+            node.value.accept(self, env)
+            
+            # Verificar compatibilidad de tipos
             if not can_assign(var_info.dtype, node.value.dtype):
                 self.error_manager.add_error(
-                    f"Cannot assign {node.value.dtype} to variable '{node.name}' of type {var_info.dtype}",
-                    getattr(node, 'lineno', None)
-                )
+                    f"Cannot assign {node.value.dtype} to {var_info.dtype} variable '{node.name}'",
+                    getattr(node, 'lineno', None))
+            
             node.dtype = var_info.dtype
-        except Symtab.SymbolNotFoundError:
-            self.error_manager.add_error(
-                f"Cannot assign to undeclared variable '{node.name}'",
-                getattr(node, 'lineno', None)
-            )
-            node.dtype = 'error'
-
-    def visit_FuncDecl(self, node: FuncDecl, env: Symtab) -> None:
-        if not is_valid_type(node.return_type):
-            self.error_manager.add_error(
-                f"Invalid return type '{node.return_type}' for function '{node.name}'",
-                getattr(node, 'lineno', None)
-            )
-
-        # Registrar la función en el ámbito actual
-        try:
-            env.add(node.name, node)
-        except Symtab.SymbolDefinedError as e:
+        except Symtab.SymbolNotFoundError as e:
             self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
-        except Symtab.SymbolConflictError as e:
-            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
+        return None
 
-        # Crear nuevo ámbito para los parámetros y cuerpo
-        func_env = Symtab(f"func_{node.name}", env)
-        
-        # Registrar parámetros
-        for param_name, param_type in node.params:
-            if not is_valid_type(param_type):
-                self.error_manager.add_error(
-                    f"Invalid parameter type '{param_type}' in function '{node.name}'",
-                    getattr(node, 'lineno', None)
-                )
-            param_node = VarDecl(param_name, param_type)
-            func_env.add(param_name, param_node)
-
-        # Verificar cuerpo de la función
-        prev_return_type = self.current_function_return_type
-        self.current_function_return_type = node.return_type
-        
-        node.body.accept(self, func_env)
-        
-        self.current_function_return_type = prev_return_type
-        node.dtype = node.return_type
-
-    def visit_Return(self, node: Return, env: Symtab) -> None:
-        if node.value:
-            node.value.accept(self, env)
-            return_type = node.value.dtype
-        else:
-            return_type = 'void'
-
-        if self.current_function_return_type is None:
-            self.error_manager.add_error(
-                "Return statement outside of function",
-                getattr(node, 'lineno', None)
-            )
-        elif not can_assign(self.current_function_return_type, return_type):
-            self.error_manager.add_error(
-                f"Return type mismatch: expected {self.current_function_return_type}, got {return_type}",
-                getattr(node, 'lineno', None)
-            )
-
-        node.dtype = return_type
-
-    def visit_While(self, node: While, env: Symtab) -> None:
-        node.condition.accept(self, env)
-        if node.condition.dtype != 'bool':
-            self.error_manager.add_error(
-                "While condition must be a boolean expression",
-                getattr(node, 'lineno', None)
-            )
-
-        prev_in_loop = self.in_loop
-        self.in_loop = True
-        
-        loop_env = Symtab("while", env)
-        node.body.accept(self, loop_env)
-        
-        self.in_loop = prev_in_loop
-        node.dtype = 'void'
-
-    def visit_BinaryOp(self, node: BinaryOp, env: Symtab) -> None:
+    def visit_BinaryOp(self, node, env):
         node.left.accept(self, env)
         node.right.accept(self, env)
         
+        # Conversión implícita de int a float si es necesario
+        if node.operator in ['TIMES', 'PLUS', 'MINUS', 'DIVIDE']:
+            if node.left.dtype == 'int' and node.right.dtype == 'float':
+                node.left = TypeCast('float', node.left)
+            elif node.left.dtype == 'float' and node.right.dtype == 'int':
+                node.right = TypeCast('float', node.right)
+        
         result_type = check_binop(
             node.operator,
-            node.left.dtype,
+            getattr(node.left, 'dtype', None),
+            getattr(node.right, 'dtype', None),
+            self.error_manager,
+            getattr(node, 'lineno', None)
+        )
+        
+        node.dtype = result_type
+        return None
+
+    def visit_UnaryOp(self, node, env):
+        node.right.accept(self, env)
+        
+        result_type = check_unaryop(
+            node.operator,
             node.right.dtype,
             self.error_manager
         )
         
-        if result_type is None:
-            self.error_manager.add_error(
-                f"Invalid operation: {node.left.dtype} {node.operator} {node.right.dtype}",
-                getattr(node, 'lineno', None)
-            )
-            result_type = 'error'
-        
         node.dtype = result_type
+        return None
 
-    def visit_FuncCall(self, node: FuncCall, env: Symtab) -> None:
-        # Verificar que la función existe
+    def visit_IntLiteral(self, node, env):
+        node.dtype = 'int'
+        return None
+
+    def visit_FloatLiteral(self, node, env):
+        node.dtype = 'float'
+        return None
+
+    def visit_BoolLiteral(self, node, env):
+        node.dtype = 'bool'
+        return None
+
+    def visit_StringLiteral(self, node, env):
+        node.dtype = 'string'
+        return None
+
+    def visit_CharLiteral(self, node, env):
+        node.dtype = 'char'
+        return None
+
+    def visit_Identifier(self, node, env):
         try:
-            func_decl = env.get(node.name)
-            node.dtype = func_decl.dtype
-        except Symtab.SymbolNotFoundError:
-            self.error_manager.add_error(
-                f"Undefined function '{node.name}'",
-                getattr(node, 'lineno', None)
-            )
-            node.dtype = 'error'
-            return
+            symbol = env.get(node.name)
+            node.dtype = symbol.dtype
+        except Symtab.SymbolNotFoundError as e:
+            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
+            node.dtype = 'unknown'
+        return None
 
-        # Verificar argumentos
-        if len(node.args) != len(func_decl.params):
+    def visit_If(self, node, env):
+        node.condition.accept(self, env)
+        if node.condition.dtype != 'bool':
             self.error_manager.add_error(
-                f"Function '{node.name}' expects {len(func_decl.params)} arguments, got {len(node.args)}",
-                getattr(node, 'lineno', None)
-            )
-        else:
-            for arg, (param_name, param_type) in zip(node.args, func_decl.params):
+                "If condition must be boolean",
+                getattr(node, 'lineno', None))
+        
+        # Verificar el bloque then
+        then_env = Symtab("if_then", parent=env)
+        node.then_block.accept(self, then_env)
+        
+        # Verificar el bloque else si existe
+        if node.else_block:
+            else_env = Symtab("if_else", parent=env)
+            node.else_block.accept(self, else_env)
+        
+        return None
+
+    def visit_While(self, node, env):
+        node.condition.accept(self, env)
+        if node.condition.dtype != 'bool':
+            self.error_manager.add_error(
+                "While condition must be boolean",
+                getattr(node, 'lineno', None))
+        
+        # Crear nuevo ámbito para el cuerpo del while
+        loop_env = Symtab("while_body", parent=env)
+        self.in_loop = True
+        node.body.accept(self, loop_env)
+        self.in_loop = False
+        
+        return None
+
+    def visit_Block(self, node, env):
+        block_env = Symtab("block", parent=env)
+        for stmt in node.statements:
+            stmt.accept(self, block_env)
+        return None
+
+    def visit_Print(self, node, env):
+        node.expression.accept(self, env)
+        return None
+
+    def visit_FuncDecl(self, node, env):
+        try:
+            # Registrar la función en el ámbito actual
+            env.add(node.name, node)
+            
+            # Crear nuevo ámbito para los parámetros y cuerpo
+            func_env = Symtab(node.name, parent=env)
+            
+            # Registrar parámetros
+            for param_name, param_type in node.params:
+                param_node = VarDecl(param_name, param_type)
+                func_env.add(param_name, param_node)
+            
+            # Verificar el cuerpo de la función
+            self.current_function_return_type = node.return_type
+            node.body.accept(self, func_env)
+            self.current_function_return_type = None
+            
+        except Symtab.SymbolDefinedError as e:
+            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
+        return None
+
+    def visit_Return(self, node, env):
+        if node.value:
+            node.value.accept(self, env)
+            if not can_assign(self.current_function_return_type, node.value.dtype):
+                self.error_manager.add_error(
+                    f"Return type mismatch: expected {self.current_function_return_type}, got {node.value.dtype}",
+                    getattr(node, 'lineno', None))
+        elif self.current_function_return_type != 'void':
+            self.error_manager.add_error(
+                f"Non-void function must return a value",
+                getattr(node, 'lineno', None))
+        return None
+
+    def visit_FuncCall(self, node, env):
+        try:
+            func_info = env.get(node.name)
+            
+            # Verificar argumentos
+            for arg in node.args:
                 arg.accept(self, env)
-                if not can_assign(param_type, arg.dtype):
-                    self.error_manager.add_error(
-                        f"Argument type mismatch in '{node.name}': expected {param_type}, got {arg.dtype}",
-                        getattr(node, 'lineno', None)
-                    )
+            
+            # TODO: Verificar coincidencia de parámetros y argumentos
+            node.dtype = func_info.return_type
+        except Symtab.SymbolNotFoundError as e:
+            self.error_manager.add_error(str(e), getattr(node, 'lineno', None))
+            node.dtype = 'unknown'
+        return None
 
-    def visit_Break(self, node: Break, env: Symtab) -> None:
+    def visit_Break(self, node, env):
         if not self.in_loop:
             self.error_manager.add_error(
-                "Break statement outside of loop",
-                getattr(node, 'lineno', None)
-            )
-        node.dtype = 'void'
+                "Break statement outside loop",
+                getattr(node, 'lineno', None))
+        return None
 
-    def visit_Continue(self, node: Continue, env: Symtab) -> None:
+    def visit_Continue(self, node, env):
         if not self.in_loop:
             self.error_manager.add_error(
-                "Continue statement outside of loop",
-                getattr(node, 'lineno', None)
-            )
-        node.dtype = 'void'
+                "Continue statement outside loop",
+                getattr(node, 'lineno', None))
+        return None
 
-# Alias para compatibilidad
-Checker = TypeChecker
+    def visit_TypeCast(self, node, env):
+        node.expression.accept(self, env)
+        # TODO: Verificar que el cast es válido
+        node.dtype = node.cast_type
+        return None
+
+    def visit_MemoryAccess(self, node, env):
+        node.expression.accept(self, env)
+        # TODO: Determinar tipo de acceso a memoria
+        return None
+
+def print_errors(title, errors):
+    """Imprime errores con formato consistente"""
+    if errors:
+        print(f"\n✗ {title}:")
+        for error in errors:
+            print(f"  - {error}")
+
+def print_success(message):
+    """Imprime mensaje de éxito con formato"""
+    print(f"\n✓ {message}")
+
+def main():
+    if len(sys.argv) != 2:
+        print("Uso: python check.py archivo.gox")
+        sys.exit(1)
+
+    filename = sys.argv[1]
+    
+    try:
+        # Leer código fuente
+        with open(filename, 'r') as file:
+            source_code = file.read()
+        
+        print(f"\nAnalizando: {filename}")
+        
+        # Análisis léxico
+        lexer = Lexer()
+        tokens, lex_errors = lexer.tokenize(source_code)
+        print_errors("Errores léxicos encontrados", lex_errors)
+        if lex_errors:
+            sys.exit(1)
+
+        # Análisis sintáctico
+        parser = Parser(tokens)
+        ast = parser.parse()
+        print_errors("Errores de sintaxis encontrados", parser.error_manager.get_all())
+        if ast is None:
+            sys.exit(1)
+
+        # Análisis semántico
+        checker = TypeChecker()
+        is_valid = checker.check(ast)
+        
+        if is_valid:
+            print_success("Programa válido semánticamente")
+            sys.exit(0)
+        else:
+            print_errors("Errores semánticos encontrados", checker.error_manager.get_all())
+            sys.exit(1)
+            
+    except FileNotFoundError:
+        print(f"\nError: No se encontró el archivo {filename}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\nError inesperado: {str(e)}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

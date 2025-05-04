@@ -1,24 +1,25 @@
 import os
 import json
-from goxLang_AST_nodes import (
-    Program, Print, If, Block, IntLiteral, FloatLiteral, StringLiteral,
-    BoolLiteral, Identifier, ImportFunctionDecl, MemoryAccess, CharLiteral,
-    TypeCast, VarDecl, ConstDecl, FuncDecl, Assignment, BinaryOp,
-    While, Return, Call, Break, Continue
-)
-from lexer import GoxLangLexer, Token
+from goxLang_AST_nodes import *
+from lexer import Lexer, Token
 from gox_error_manager import ErrorManager
 
-class GoxLangParser:
-    def __init__(self):
-        self.lexer = GoxLangLexer()
-        self.tokens = []
+class Parser:
+    def __init__(self, tokens=None):
+        self.lexer = Lexer()
+        self.tokens = tokens or []
         self.current = 0
         self.error_manager = ErrorManager()
 
     def add_error(self, message, lineno=None, col=None):
         """Registra un error con información de posición"""
         self.error_manager.add_error(message, lineno, col)
+
+    def check_next(self, token_type):
+        """Verifica el tipo del siguiente token sin consumirlo"""
+        if self.current + 1 >= len(self.tokens):
+            return False
+        return self.tokens[self.current + 1].type == token_type
 
     def tokenize(self, source_code):
         """Convierte el código fuente en tokens"""
@@ -27,30 +28,33 @@ class GoxLangParser:
             self.error_manager.add_error(err)
         return tokens, lex_errors
 
-    def parse(self, source_code):
-        """Método principal que analiza el código fuente"""
-        self.tokens, lex_errors = self.tokenize(source_code)
-        
-        if lex_errors:
+    def parse(self):
+        """Analiza los tokens y retorna el AST o None si hay errores"""
+        # Debug: Mostrar todos los tokens
+        print("\n=== TOKEN STREAM ===")
+        for i, token in enumerate(self.tokens):
+            print(f"{i}: {token.type} '{token.value}' (line {token.lineno})")
+
+        if not self.tokens:
+            self.add_error("No hay tokens para analizar")
             return None
 
-        # Añadir token EOF
-        last_line = self.tokens[-1].lineno if self.tokens else 1
-        self.tokens.append(Token("EOF", "", last_line))
+        # Asegurar token EOF
+        if self.tokens[-1].type != "EOF":
+            last_line = self.tokens[-1].lineno if self.tokens else 1
+            self.tokens.append(Token("EOF", "", last_line))
+        
         self.current = 0
-
+        
         try:
             program_node = self.parse_program()
+            self._generate_debug_files(program_node)
+            return program_node
         except Exception as e:
             current_token = self.peek()
             lineno = current_token.lineno if hasattr(current_token, 'lineno') else None
-            self.add_error(f"Error during parsing: {str(e)}", lineno)
+            self.add_error(f"Error durante el parsing: {str(e)}", lineno)
             return None
-
-        # Generar archivos de depuración
-        self._generate_debug_files(program_node)
-        
-        return program_node
 
     def _generate_debug_files(self, program_node):
         """Genera archivos JSON con el AST y errores"""
@@ -92,6 +96,8 @@ class GoxLangParser:
             return self.parse_const_decl()
         elif self.match("WHILE"):
             return self.parse_while()
+        elif self.match("LBRACE"):
+            return self.parse_block()
         elif self.match("RETURN"):
             return self.parse_return()
         elif self.match("BREAK"):
@@ -108,29 +114,33 @@ class GoxLangParser:
     def parse_expression_statement(self):
         """ExprStmt ::= Expression (';' | Assignment | FuncCall)"""
         current_token = self.peek()
-        expr = self.parse_expression()
         
-        # Assignment
-        if isinstance(expr, Identifier) and self.match("ASSIGN"):
+        # Caso especial para asignaciones
+        if self.check("ID") and self.check_next("ASSIGN"):
+            name_token = self.advance()  # Consume el ID
+            self.advance()  # Consume el ASSIGN
             value = self.parse_expression()
             if not self.match("SEMICOLON"):
                 self.add_error("Expected ';' after assignment", current_token.lineno)
-            return Assignment(expr.name, value)
+            return Assignment(name_token.value, value)
         
-        # Function call
-        elif isinstance(expr, Identifier) and self.check("LPAREN"):
-            self.advance()  # Consume LPAREN
+        # Intenta parsear una expresión normal
+        expr = self.parse_expression()
+        if not expr:
+            return None
+            
+        # Verificar si es una llamada a función
+        if isinstance(expr, Identifier) and self.match("LPAREN"):
             args = self.parse_argument_list()
             if not self.match("SEMICOLON"):
                 self.add_error("Expected ';' after function call", current_token.lineno)
-            return Call(expr.name, args)
-        
-        # Simple expression
-        elif self.match("SEMICOLON"):
+            return FuncCall(expr.name, args)
+            
+        if self.match("SEMICOLON"):
             return expr
             
-        self.add_error("Unexpected statement", current_token.lineno)
-        return None
+        self.add_error("Expected ';' after expression", current_token.lineno)
+        return expr
 
     def parse_argument_list(self):
         """ArgumentList ::= '(' (Expression (',' Expression)*)? ')'"""
@@ -173,14 +183,23 @@ class GoxLangParser:
 
     def parse_while(self):
         """WhileStmt ::= 'while' Expression Block"""
-        current_token = self.peek()
-        condition = self.parse_expression()
+        while_token = self.advance()  # Consume 'while'
         
-        if condition.dtype != 'bool':
-            self.add_error("Condition must be a boolean expression", current_token.lineno)
-            
+        condition = self.parse_expression()
+        if not condition:
+            self.add_error("Expected condition after 'while'", while_token.lineno)
+            return None
+
+        # No debe haber ; después de la condición
+        if self.match('SEMICOLON'):
+            self.add_error("Unexpected ';' after while condition", while_token.lineno)
+
         body = self.parse_block()
-        return While(condition, body)
+        if not body:
+            self.add_error("Expected block after while condition", while_token.lineno)
+            return None
+
+        return While(condition, body, while_token.lineno)
 
     def parse_return(self):
         """ReturnStmt ::= 'return' Expression? ';'"""
@@ -314,22 +333,23 @@ class GoxLangParser:
 
     def parse_block(self):
         """Block ::= '{' Statement* '}'"""
-        current_token = self.peek()
-        statements = []
-        
-        if not self.match("LBRACE"):
-            self.add_error("Expected '{' at beginning of block", current_token.lineno)
-            return Block([])
+        lbrace_token = self.peek()
+        if not self.match('LBRACE'):
+            self.add_error(f"Expected '{{' to start block, got '{lbrace_token.type}'", lbrace_token.lineno)
+            return None
 
-        while not self.check("RBRACE") and not self.is_at_end():
+        statements = []
+        while not self.check('RBRACE') and not self.is_at_end():
             stmt = self.parse_statement()
             if stmt:
                 statements.append(stmt)
 
-        if not self.match("RBRACE"):
-            self.add_error("Expected '}' at end of block", current_token.lineno)
-            
-        return Block(statements)
+        if not self.match('RBRACE'):
+            current_token = self.peek()
+            self.add_error(f"Expected '}}' to end block, got '{current_token.type}'", current_token.lineno)
+            return None
+
+        return Block(statements, lbrace_token.lineno)
 
     def parse_expression(self):
         """Expression ::= Equality"""
@@ -339,10 +359,11 @@ class GoxLangParser:
         """Equality ::= Comparison (('==' | '!=') Comparison)*"""
         expr = self.parse_comparison()
         
-        while self.match("EQUAL", "NOTEQUAL"):
+        while self.match('EQ', 'NE'):
             operator = self.previous().type
             right = self.parse_comparison()
             expr = BinaryOp(expr, operator, right)
+            expr.dtype = 'bool'
             
         return expr
 
@@ -350,10 +371,11 @@ class GoxLangParser:
         """Comparison ::= Term (('<' | '>' | '<=' | '>=') Term)*"""
         expr = self.parse_term()
         
-        while self.match("LT", "GT", "LE", "GE"):
+        while self.match('LT', 'GT', 'LE', 'GE'):
             operator = self.previous().type
             right = self.parse_term()
             expr = BinaryOp(expr, operator, right)
+            expr.dtype = 'bool'
             
         return expr
 
@@ -372,7 +394,7 @@ class GoxLangParser:
         """Factor ::= Unary (('*' | '/' | '%') Unary)*"""
         expr = self.parse_unary()
         
-        while self.match("STAR", "SLASH", "MOD"):
+        while self.match("TIMES", "DIVIDE", "MOD"):
             operator = self.previous().type
             right = self.parse_unary()
             expr = BinaryOp(expr, operator, right)
@@ -384,7 +406,6 @@ class GoxLangParser:
         if self.match("MINUS", "BANG"):
             operator = self.previous().type
             right = self.parse_unary()
-            # Crear un nodo binario con un valor por defecto
             zero = IntLiteral(0) if operator == "MINUS" else BoolLiteral(False)
             return BinaryOp(zero, operator, right)
             
@@ -414,10 +435,6 @@ class GoxLangParser:
             return BoolLiteral(False)
         elif current_token.type == "ID":
             return Identifier(current_token.value)
-        elif current_token.type == "TYPECAST":
-            return self.parse_typecast(current_token.value)
-        elif current_token.type == "BACKTICK":
-            return self.parse_memory_access()
         elif current_token.type == "LPAREN":
             expr = self.parse_expression()
             if not self.match("RPAREN"):
@@ -426,36 +443,6 @@ class GoxLangParser:
             
         self.add_error(f"Unexpected token in expression: {current_token.type}", current_token.lineno)
         return None
-
-    def parse_typecast(self, type_name):
-        """TypeCast ::= 'cast' '<' Type '>' '(' Expression ')'"""
-        current_token = self.peek()
-        
-        if not self.match("LPAREN"):
-            self.add_error("Expected '(' after typecast", current_token.lineno)
-            return None
-            
-        expr = self.parse_expression()
-        
-        if not self.match("RPAREN"):
-            self.add_error("Expected ')' after typecast", current_token.lineno)
-            
-        return TypeCast(type_name, expr)
-
-    def parse_memory_access(self):
-        """MemoryAccess ::= '`' '(' Expression ')'"""
-        current_token = self.peek()
-        
-        if not self.match("LPAREN"):
-            self.add_error("Expected '(' after '`'", current_token.lineno)
-            return None
-            
-        addr_expr = self.parse_expression()
-        
-        if not self.match("RPAREN"):
-            self.add_error("Expected ')' after address expression", current_token.lineno)
-            
-        return MemoryAccess(addr_expr)
 
     # ===== Métodos de ayuda para el análisis =====
     def match(self, *types):
@@ -489,49 +476,3 @@ class GoxLangParser:
     def previous(self):
         """Devuelve el token anterior"""
         return self.tokens[self.current - 1]
-
-
-# Ejemplo de uso
-if __name__ == "__main__":
-    codigo = """
-    import func put_image(base int, width int, height int) int;
-    
-    const xmin = -2.0;
-    const xmax = 1.0;
-    const ymin = -1.5;
-    const ymax = 1.5;
-    const threshhold = 1000;
-
-    func in_mandelbrot(x0 float, y0 float, n int) bool {
-        var x float = 0.0;
-        var y float = 0.0;
-        var xtemp float;
-        while n > 0 {
-            xtemp = x*x - y*y + x0;
-            y = 2.0*x*y + y0;
-            x = xtemp;
-            n = n - 1;
-            if x*x + y*y > 4.0 {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    
-    """
-
-    parser = GoxLangParser()
-    ast = parser.parse(codigo)
-
-    if ast:
-        print("AST generado correctamente:")
-        print(json.dumps(ast.to_dict(), indent=4))
-        
-        print("\nErrores detectados:")
-        for err in parser.error_manager.get_all():
-            print(" -", err)
-    else:
-        print("Error al generar el AST:")
-        for err in parser.error_manager.get_all():
-            print(" -", err)

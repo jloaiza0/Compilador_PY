@@ -1,4 +1,3 @@
-# typesys.py
 '''
 Sistema de tipos para goxLang
 
@@ -25,84 +24,91 @@ BASIC_TYPES = {
 # Jerarquía de tipos para conversiones implícitas
 TYPE_HIERARCHY = ['bool', 'char', 'int', 'float']
 
-# Operadores binarios soportados
-BIN_OPS = {
-    # Aritméticos
-    '+', '-', '*', '/', '%', '^',
-    # Comparación
-    '==', '!=', '<', '>', '<=', '>=',
-    # Lógicos
-    '&&', '||'
-}
-
-# Operadores unarios soportados
-UNARY_OPS = {
-    '+', '-', '!'
+# Mapeo de operadores a sus representaciones internas
+OPERATOR_MAP = {
+    '+': 'PLUS',
+    '-': 'MINUS',
+    '*': 'STAR',
+    '/': 'SLASH',
+    '%': 'MOD',
+    '^': 'POW',
+    '==': 'EQUAL',
+    '!=': 'NOTEQUAL',
+    '<': 'LT',
+    '>': 'GT',
+    '<=': 'LE',
+    '>=': 'GE',
+    '&&': 'AND',
+    '||': 'OR'
 }
 
 # Tabla de operaciones binarias válidas
 BIN_OP_TABLE = {
     # Operaciones con enteros
-    ('int', '+', 'int'): 'int',
-    ('int', '-', 'int'): 'int',
-    ('int', '*', 'int'): 'int',
-    ('int', '/', 'int'): 'int',
-    ('int', '%', 'int'): 'int',
-    ('int', '^', 'int'): 'int',
+    ('int', 'PLUS', 'int'): 'int',
+    ('int', 'MINUS', 'int'): 'int',
+    ('int', 'STAR', 'int'): 'int',
+    ('int', 'SLASH', 'int'): 'int',
+    ('int', 'MOD', 'int'): 'int',
+    ('int', 'POW', 'int'): 'int',
+    ('int', 'TIMES', 'int'): 'int',
     
-    ('int', '==', 'int'): 'bool',
-    ('int', '!=', 'int'): 'bool',
-    ('int', '<', 'int'): 'bool',
-    ('int', '>', 'int'): 'bool',
-    ('int', '<=', 'int'): 'bool',
-    ('int', '>=', 'int'): 'bool',
+    ('int', 'EQUAL', 'int'): 'bool',
+    ('int', 'NOTEQUAL', 'int'): 'bool',
+    ('int', 'LT', 'int'): 'bool',
+    ('int', 'GT', 'int'): 'bool',
+    ('int', 'LE', 'int'): 'bool',
+    ('int', 'GE', 'int'): 'bool',
 
     # Operaciones con floats
-    ('float', '+', 'float'): 'float',
-    ('float', '-', 'float'): 'float',
-    ('float', '*', 'float'): 'float',
-    ('float', '/', 'float'): 'float',
-    ('float', '^', 'float'): 'float',
+    ('float', 'PLUS', 'float'): 'float',
+    ('float', 'TIMES', 'float'): 'float',
+    ('float', 'MINUS', 'float'): 'float',
+    ('float', 'STAR', 'float'): 'float',
+    ('float', 'SLASH', 'float'): 'float',
+    ('float', 'POW', 'float'): 'float',
     
-    ('float', '==', 'float'): 'bool',
-    ('float', '!=', 'float'): 'bool',
-    ('float', '<', 'float'): 'bool',
-    ('float', '>', 'float'): 'bool',
-    ('float', '<=', 'float'): 'bool',
-    ('float', '>=', 'float'): 'bool',
+    ('float', 'EQUAL', 'float'): 'bool',
+    ('float', 'NOTEQUAL', 'float'): 'bool',
+    ('float', 'LT', 'float'): 'bool',
+    ('float', 'GT', 'float'): 'bool',
+    ('float', 'LE', 'float'): 'bool',
+    ('float', 'GE', 'float'): 'bool',
 
     # Operaciones mixtas (int y float)
-    ('int', '+', 'float'): 'float',
-    ('float', '+', 'int'): 'float',
-    ('int', '-', 'float'): 'float',
-    ('float', '-', 'int'): 'float',
-    ('int', '*', 'float'): 'float',
-    ('float', '*', 'int'): 'float',
-    ('int', '/', 'float'): 'float',
-    ('float', '/', 'int'): 'float',
+    ('int', 'PLUS', 'float'): 'float',
+    ('float', 'PLUS', 'int'): 'float',
+    ('int', 'MINUS', 'float'): 'float',
+    ('float', 'MINUS', 'int'): 'float',
+    ('int', 'STAR', 'float'): 'float',
+    ('float', 'STAR', 'int'): 'float',
+    ('int', 'SLASH', 'float'): 'float',
+    ('float', 'SLASH', 'int'): 'float',
+    ('int', 'TIMES', 'float'): 'float',
+    ('float', 'TIMES', 'int'): 'float',
 
     # Operaciones con booleanos
-    ('bool', '&&', 'bool'): 'bool',
-    ('bool', '||', 'bool'): 'bool',
-    ('bool', '==', 'bool'): 'bool',
-    ('bool', '!=', 'bool'): 'bool',
+    ('bool', 'AND', 'bool'): 'bool',
+    ('bool', 'OR', 'bool'): 'bool',
+    ('bool', 'EQUAL', 'bool'): 'bool',
+    ('bool', 'NOTEQUAL', 'bool'): 'bool',
 
     # Operaciones con chars
-    ('char', '==', 'char'): 'bool',
-    ('char', '!=', 'char'): 'bool',
-    ('char', '<', 'char'): 'bool',
-    ('char', '>', 'char'): 'bool',
-    ('char', '<=', 'char'): 'bool',
-    ('char', '>=', 'char'): 'bool',
+    ('char', 'EQUAL', 'char'): 'bool',
+    ('char', 'NOTEQUAL', 'char'): 'bool',
+    ('char', 'LT', 'char'): 'bool',
+    ('char', 'GT', 'char'): 'bool',
+    ('char', 'LE', 'char'): 'bool',
+    ('char', 'GE', 'char'): 'bool',
 }
 
 # Tabla de operaciones unarias válidas
 UNARY_OP_TABLE = {
-    ('+', 'int'): 'int',
-    ('-', 'int'): 'int',
-    ('+', 'float'): 'float',
-    ('-', 'float'): 'float',
-    ('!', 'bool'): 'bool',
+    ('PLUS', 'int'): 'int',
+    ('MINUS', 'int'): 'int',
+    ('PLUS', 'float'): 'float',
+    ('MINUS', 'float'): 'float',
+    ('NOT', 'bool'): 'bool',
 }
 
 @dataclass
@@ -115,41 +121,52 @@ def is_valid_type(type_name: str) -> bool:
     """Verifica si un tipo es válido en el lenguaje"""
     return type_name in BASIC_TYPES
 
-def check_binop(op: str, left_type: str, right_type: str, error_manager: ErrorManager = None) -> Optional[str]:
-    """
-    Verifica si una operación binaria es válida entre dos tipos.
+def map_operator(op: str) -> str:
+    """Mapea operadores a sus representaciones internas"""
+    return OPERATOR_MAP.get(op, op)
+
+def check_binop(op: str, left_type: str, right_type: str, 
+               error_manager: ErrorManager = None, lineno: int = None) -> Optional[str]:
+    """Verifica si una operación binaria es válida entre dos tipos.
     
     Args:
-        op: Operador (+, -, *, etc.)
+        op: Operador (+, -, *, etc. o sus formas PLS, MINUS, etc.)
         left_type: Tipo del operando izquierdo
         right_type: Tipo del operando derecho
-        error_manager: Manejador de errores para reportar problemas
+        error_manager: Manejador de errores opcional
+        lineno: Número de línea para reporte de errores
         
     Returns:
         El tipo resultante de la operación o None si no es válida
     """
+    # Normalizar el operador
+    normalized_op = map_operator(op)
+    
     # Verificar tipos básicos
     if not is_valid_type(left_type) or not is_valid_type(right_type):
         if error_manager:
-            error_manager.add_error(f"Invalid type in binary operation: {left_type} {op} {right_type}")
+            error_manager.add_error(
+                f"Invalid type in binary operation: {left_type} {op} {right_type}",
+                lineno)
         return None
     
     # Buscar operación exacta
-    result_type = BIN_OP_TABLE.get((left_type, op, right_type))
+    result_type = BIN_OP_TABLE.get((left_type, normalized_op, right_type))
     
     # Si no se encuentra, intentar con conversión implícita
     if result_type is None and left_type != right_type:
-        # Encontrar el tipo más alto en la jerarquía
         try:
             left_rank = TYPE_HIERARCHY.index(left_type)
             right_rank = TYPE_HIERARCHY.index(right_type)
             promoted_type = left_type if left_rank > right_rank else right_type
-            result_type = BIN_OP_TABLE.get((promoted_type, op, promoted_type))
+            result_type = BIN_OP_TABLE.get((promoted_type, normalized_op, promoted_type))
         except ValueError:
             pass
     
     if result_type is None and error_manager:
-        error_manager.add_error(f"Invalid operation: {left_type} {op} {right_type}")
+        error_manager.add_error(
+            f"Invalid operation: {left_type} {op} {right_type}",
+            lineno)
     
     return result_type
 
@@ -165,12 +182,14 @@ def check_unaryop(op: str, operand_type: str, error_manager: ErrorManager = None
     Returns:
         El tipo resultante de la operación o None si no es válida
     """
+    normalized_op = map_operator(op)
+    
     if not is_valid_type(operand_type):
         if error_manager:
             error_manager.add_error(f"Invalid type in unary operation: {op}{operand_type}")
         return None
     
-    result_type = UNARY_OP_TABLE.get((op, operand_type))
+    result_type = UNARY_OP_TABLE.get((normalized_op, operand_type))
     
     if result_type is None and error_manager:
         error_manager.add_error(f"Invalid unary operation: {op}{operand_type}")

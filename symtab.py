@@ -2,12 +2,9 @@
 from rich.table import Table
 from rich.console import Console
 from rich import print
-from goxLang_AST_nodes import (
-    Program, Print, If, Block, IntLiteral, FloatLiteral, StringLiteral,
-    BoolLiteral, Identifier, ImportFunctionDecl, MemoryAccess, CharLiteral,
-    TypeCast, VarDecl, ConstDecl, FuncDecl, Assignment, BinaryOp,
-    While, Return, Call, Break, Continue
-)
+from typing import Any, Optional, Dict, List
+from goxLang_AST_nodes import *
+
 class Symtab:
     '''
     Una tabla de símbolos que mantiene un registro de los nombres de símbolos
@@ -19,7 +16,7 @@ class Symtab:
         '''
         Excepción lanzada cuando un símbolo ya está definido en el ámbito actual.
         '''
-        def __init__(self, name, lineno=None):
+        def __init__(self, name: str, lineno: Optional[int] = None):
             self.name = name
             self.lineno = lineno
             super().__init__(f"Symbol '{name}' already defined in current scope{'' if lineno is None else f' at line {lineno}'}")
@@ -28,7 +25,7 @@ class Symtab:
         '''
         Excepción lanzada cuando un símbolo existe pero con un tipo diferente.
         '''
-        def __init__(self, name, existing_type, new_type, lineno=None):
+        def __init__(self, name: str, existing_type: str, new_type: str, lineno: Optional[int] = None):
             self.name = name
             self.existing_type = existing_type
             self.new_type = new_type
@@ -43,12 +40,12 @@ class Symtab:
         '''
         Excepción lanzada cuando un símbolo no se encuentra en ningún ámbito.
         '''
-        def __init__(self, name, lineno=None):
+        def __init__(self, name: str, lineno: Optional[int] = None):
             self.name = name
             self.lineno = lineno
             super().__init__(f"Symbol '{name}' not found{'' if lineno is None else f' at line {lineno}'}")
 
-    def __init__(self, name, parent=None):
+    def __init__(self, name: str, parent: Optional['Symtab'] = None):
         '''
         Crea una nueva tabla de símbolos vacía.
         
@@ -57,13 +54,13 @@ class Symtab:
             parent (Symtab, optional): Tabla de símbolos padre. Defaults to None.
         '''
         self.name = name
-        self.entries = {}
-        self.parent = parent
+        self.entries: Dict[str, Any] = {}
+        self.parent: Optional['Symtab'] = parent
+        self.children: List['Symtab'] = []
         if self.parent:
             self.parent.children.append(self)
-        self.children = []
-        
-    def add(self, name, value, lineno=None):
+
+    def add(self, name: str, value: Any, lineno: Optional[int] = None) -> None:
         '''
         Agrega un nuevo símbolo a la tabla.
         
@@ -84,7 +81,7 @@ class Symtab:
             raise self.SymbolDefinedError(name, lineno)
         self.entries[name] = value
         
-    def get(self, name, lineno=None):
+    def get(self, name: str, lineno: Optional[int] = None) -> Any:
         '''
         Busca un símbolo en la tabla actual y padres.
         
@@ -93,18 +90,35 @@ class Symtab:
             lineno (int, optional): Número de línea para reporte de errores
             
         Returns:
-            El valor asociado al símbolo o None si no se encuentra
+            El valor asociado al símbolo
             
         Raises:
             SymbolNotFoundError: Si el símbolo no existe en ningún ámbito
         '''
         if name in self.entries:
             return self.entries[name]
-        elif self.parent:
-            return self.parent.get(name)
+        if self.parent:
+            return self.parent.get(name, lineno)
         raise self.SymbolNotFoundError(name, lineno)
         
-    def contains_in_current_scope(self, name):
+    def get_type(self, name: str, lineno: Optional[int] = None) -> Optional[str]:
+        '''
+        Obtiene específicamente el tipo de un símbolo.
+        
+        Args:
+            name (str): Nombre del símbolo
+            lineno (int, optional): Número de línea para reporte de errores
+            
+        Returns:
+            str: Tipo del símbolo o None si no tiene tipo o no existe
+        '''
+        try:
+            symbol = self.get(name, lineno)
+            return getattr(symbol, 'dtype', None)
+        except self.SymbolNotFoundError:
+            return None
+        
+    def contains_in_current_scope(self, name: str) -> bool:
         '''
         Verifica si un símbolo existe solo en el ámbito actual.
         
@@ -116,7 +130,26 @@ class Symtab:
         '''
         return name in self.entries
         
-    def print(self, show_all_scopes=False):
+    def get_symbols(self, scope: str = 'all') -> Dict[str, Any]:
+        '''
+        Obtiene símbolos del ámbito actual o todos los visibles.
+        
+        Args:
+            scope (str): 'current' para solo ámbito actual, 'all' para todos visibles
+            
+        Returns:
+            Dict[str, Any]: Diccionario de símbolos
+        '''
+        if scope == 'current':
+            return self.entries.copy()
+        
+        symbols = {}
+        if self.parent:
+            symbols.update(self.parent.get_symbols())
+        symbols.update(self.entries)
+        return symbols
+        
+    def print(self, show_all_scopes: bool = False) -> None:
         '''
         Imprime la tabla de símbolos usando rich.
         
@@ -133,10 +166,11 @@ class Symtab:
             if hasattr(value, 'dtype'):
                 details += f" (type: {value.dtype})"
             if isinstance(value, (VarDecl, ConstDecl)):
-                details += f" = {value.value.to_dict() if value.value else 'None'}"
-            elif isinstance(value, FuncDecl):
-                params = ", ".join([f"{p[0]}: {p[1]}" for p in value.params])
-                details += f" ({params}) -> {value.return_type}"
+                details += f" = {value.value.to_dict() if hasattr(value, 'value') and value.value else 'None'}"
+            elif isinstance(value, (FuncDecl, ImportFunctionDecl)):
+                params = ", ".join([f"{p[0]}: {p[1]}" for p in value.params]) if hasattr(value, 'params') else "()"
+                return_type = getattr(value, 'return_type', 'void')
+                details += f" ({params}) -> {return_type}"
                 
             table.add_row(name, getattr(value, 'dtype', '?'), details)
         
@@ -146,8 +180,8 @@ class Symtab:
             for child in self.children:
                 child.print(show_all_scopes)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Symtab(name='{self.name}', entries={len(self.entries)}, children={len(self.children)})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
