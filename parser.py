@@ -81,8 +81,9 @@ class Parser:
                        | VarDecl | ConstDecl | FuncDecl | ImportDecl
                        | Assignment | ExprStmt | Block | Break | Continue"""
         current_token = self.peek()
-        
-        if self.match("PRINT"):
+        if self.match('WHILE'):
+            return self.parse_while()
+        elif self.match("PRINT"):
             return self.parse_print()
         elif self.match("IF"):
             return self.parse_if()
@@ -94,8 +95,6 @@ class Parser:
             return self.parse_var_decl()
         elif self.match("CONST"):
             return self.parse_const_decl()
-        elif self.match("WHILE"):
-            return self.parse_while()
         elif self.match("LBRACE"):
             return self.parse_block()
         elif self.match("RETURN"):
@@ -182,7 +181,6 @@ class Parser:
         return If(condition, then_block, else_block)
 
     def parse_while(self):
-        """WhileStmt ::= 'while' Expression Block"""
         while_token = self.advance()  # Consume 'while'
         
         condition = self.parse_expression()
@@ -190,15 +188,12 @@ class Parser:
             self.add_error("Expected condition after 'while'", while_token.lineno)
             return None
 
-        # No debe haber ; después de la condición
-        if self.match('SEMICOLON'):
+        # Eliminar verificación de ;
+        if self.check('SEMICOLON'):
             self.add_error("Unexpected ';' after while condition", while_token.lineno)
+            self.advance()  # Consume el ; erróneo
 
         body = self.parse_block()
-        if not body:
-            self.add_error("Expected block after while condition", while_token.lineno)
-            return None
-
         return While(condition, body, while_token.lineno)
 
     def parse_return(self):
@@ -332,10 +327,9 @@ class Parser:
         return ConstDecl(name, value)
 
     def parse_block(self):
-        """Block ::= '{' Statement* '}'"""
-        lbrace_token = self.peek()
         if not self.match('LBRACE'):
-            self.add_error(f"Expected '{{' to start block, got '{lbrace_token.type}'", lbrace_token.lineno)
+            current_token = self.peek()
+            self.add_error(f"Expected '{{' to start block, got '{current_token.type}'", current_token.lineno)
             return None
 
         statements = []
@@ -349,7 +343,7 @@ class Parser:
             self.add_error(f"Expected '}}' to end block, got '{current_token.type}'", current_token.lineno)
             return None
 
-        return Block(statements, lbrace_token.lineno)
+        return Block(statements)
 
     def parse_expression(self):
         """Expression ::= Equality"""
