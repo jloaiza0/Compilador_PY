@@ -1,3 +1,4 @@
+#Error.py
 import sys
 
 class ErrorType:

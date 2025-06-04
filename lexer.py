@@ -1,3 +1,4 @@
+#lexer.py
 import re
 # Definición de tokens con orden de precedencia (los más específicos primero)
 TOKEN_SPEC = [
