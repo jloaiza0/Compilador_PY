@@ -1,18 +1,36 @@
+# SemanticVisitor.py (versión corregida)
 from SymbolInfo import *
 from Types import Types
 from ASTnodes import *
 from Symboltab import *
-from parser import *
 
-class SemanticVisitor:
+class SemanticVisitor(ASTVisitor):
     """Visitor para análisis semántico: construcción de tabla de símbolos y verificación de tipos"""
     
     def __init__(self):
+        super().__init__()
         self.current_scope = None
         self.errors = []
         self.warnings = []
     
-    def visit_Program(self, node):
+    def visit(self, node, *args, **kwargs):
+        """Método dispatcher principal mejorado"""
+        try:
+            if node is None:
+                return None
+            return super().visit(node, *args, **kwargs)
+        except NotImplementedError as e:
+            self.errors.append(str(e))
+            return False
+    
+    def generic_visit(self, node, *args, **kwargs):
+        """Método por defecto si no se encuentra un visitor específico"""
+        node_name = type(node).__name__
+        error_msg = f"Error semántico: No hay visitor implementado para {node_name}"
+        self.errors.append(error_msg)
+        return False
+    
+    def visit_Program(self, node, *args, **kwargs):
         # Ámbito global
         global_scope = SymbolTab("global", None)
         self.current_scope = global_scope
@@ -20,18 +38,19 @@ class SemanticVisitor:
         
         # Procesar todas las declaraciones globales
         for stmt in node.statements:
-            if isinstance(stmt, (FunctionDecl, VariableDecl, ConstantDecl)):
-                stmt.accept(self)
+            self.visit(stmt)
         
         # Verificar que exista una función main
         main_symbol = global_scope.get('main')
         if not main_symbol or not isinstance(main_symbol, FunctionSymbol):
-            self.errors.append("Error: función 'main' no definida")
+            has_functions = any(isinstance(stmt, FunctionDecl) for stmt in node.statements)
+            if has_functions:
+                self.warnings.append("Advertencia: función 'main' no definida")
         
         node.symbol = global_scope
         return len(self.errors) == 0
     
-    def visit_FunctionDecl(self, node):
+    def visit_FunctionDecl(self, node, *args, **kwargs):
         # Crear símbolo de la función
         func_symbol = node.create_symbol()
         
@@ -59,7 +78,7 @@ class SemanticVisitor:
         
         # Procesar cuerpo de la función
         for stmt in node.body:
-            stmt.accept(self)
+            self.visit(stmt)
         
         # Verificar tipo de retorno
         if node.return_type != 'void':
@@ -71,7 +90,7 @@ class SemanticVisitor:
         self.current_scope = function_scope.parent
         return len(self.errors) == 0
     
-    def visit_VariableDecl(self, node):
+    def visit_VariableDecl(self, node, *args, **kwargs):
         # Verificar tipo válido
         if not Types.is_valid_type(node.var_type):
             self.errors.append(f"Tipo inválido '{node.var_type}' en declaración de '{node.name}'")
@@ -92,8 +111,8 @@ class SemanticVisitor:
         
         # Verificar inicialización
         if node.value:
-            node.value.accept(self)
-            if not Types.get_wider_type(node.var_type, node.value.type):
+            self.visit(node.value)
+            if node.value.type and not Types.get_wider_type(node.var_type, node.value.type):
                 self.errors.append(
                     f"Tipo incompatible en inicialización de '{node.name}': " +
                     f"esperado {node.var_type}, encontrado {node.value.type}")
@@ -102,8 +121,8 @@ class SemanticVisitor:
     
     def visit_BinOp(self, node):
         # Procesar operandos
-        node.left.accept(self)
-        node.right.accept(self)
+        self.visit(node.left)   # Cambiar a visit()
+        self.visit(node.right)  # Cambiar a visit()
         
         # Verificar tipos
         result_type = Types.check_binop(node.op, node.left.type, node.right.type)
@@ -115,14 +134,242 @@ class SemanticVisitor:
         node.type = result_type
         return True
     
+    def visit_Print(self, node, *args, **kwargs):
+        """Visitor para la sentencia print"""
+        if node.expr:
+            # Visitar la expresión que se va a imprimir
+            self.visit(node.expr)
+            
+            # Verificar que sea un tipo imprimible
+            if hasattr(node.expr, 'type'):
+                if node.expr.type not in ['int', 'float', 'string', 'char', 'bool']:
+                    self.errors.append(
+                        f"No se puede imprimir valor de tipo '{node.expr.type}'"
+                    )
+                    return False
+        return True
+    def visit_While(self, node, *args, **kwargs):
+        """Visitor para la sentencia while"""
+        # Verificar la condición
+        self.visit(node.test)
+        if hasattr(node.test, 'type') and node.test.type != 'bool':
+            self.errors.append("La condición del while debe ser booleana")
+        
+        # Nuevo ámbito para el cuerpo del while
+        while_scope = SymbolTab("while_block", self.current_scope)
+        self.current_scope = while_scope
+        
+        # Visitar el cuerpo
+        self.visit(node.body)
+        
+        # Volver al ámbito padre
+        self.current_scope = while_scope.parent
+        return True
+    def visit_RelOp(self, node):
+        """Visitor para operadores relacionales (<, <=, >, >=, ==, !=)"""
+        self.visit(node.left)
+        self.visit(node.right)
+        
+        # Los operadores relacionales requieren tipos compatibles
+        left_type = getattr(node.left, 'type', None)
+        right_type = getattr(node.right, 'type', None)
+        
+        if not left_type or not right_type:
+            self.errors.append("Tipos no definidos en operación relacional")
+            return False
+            
+        # Verificar compatibilidad de tipos para operadores relacionales
+        compatible_types = [
+            ('int', 'int'), ('float', 'float'), ('int', 'float'), ('float', 'int'),
+            ('char', 'char'), ('string', 'string'), ('bool', 'bool')
+        ]
+        
+        if (left_type, right_type) not in compatible_types and (right_type, left_type) not in compatible_types:
+            self.errors.append(
+                f"Tipos incompatibles en operación relacional: {left_type} {node.op} {right_type}")
+            return False
+        
+        # Los operadores relacionales siempre devuelven bool
+        node.type = 'bool'
+        return True
+    
+    def visit_CompareOp(self, node):
+        """Visitor para operadores de comparación - alias de RelOp"""
+        self.visit(node.left)
+        self.visit(node.right)
+        
+        # Los operadores relacionales requieren tipos compatibles
+        left_type = getattr(node.left, 'type', None)
+        right_type = getattr(node.right, 'type', None)
+        
+        if not left_type or not right_type:
+            self.errors.append("Tipos no definidos en operación de comparación")
+            return False
+            
+        # Verificar compatibilidad de tipos para operadores relacionales
+        # Permitir comparaciones entre tipos compatibles
+        op = getattr(node, 'op', getattr(node, 'operator', '?'))
+        
+        if left_type == right_type:
+            # Mismo tipo siempre es compatible
+            compatible = True
+        elif left_type in ['int', 'float'] and right_type in ['int', 'float']:
+            # int y float son compatibles entre sí
+            compatible = True
+        else:
+            compatible = False
+            
+        if not compatible:
+            self.errors.append(
+                f"Tipos incompatibles en operación de comparación: {left_type} {op} {right_type}")
+            return False
+        
+        # Los operadores de comparación siempre devuelven bool
+        node.type = 'bool'
+        return True
+    
+    # Nuevo: Visitor para operadores lógicos con short-circuit
+    def visit_LogicalOr(self, node):
+        """Visitor para operador OR lógico (||) con evaluación de cortocircuito"""
+        self.visit(node.left)
+        
+        # Verificar que el operando izquierdo sea booleano
+        if hasattr(node.left, 'type') and node.left.type != 'bool':
+            self.errors.append(f"Operando izquierdo de || debe ser booleano, encontrado {node.left.type}")
+        
+        # Para short-circuit, el operando derecho solo se evalúa si es necesario
+        # Pero para análisis semántico, debemos procesarlo para verificar tipos
+        self.visit(node.right)
+        
+        if hasattr(node.right, 'type') and node.right.type != 'bool':
+            self.errors.append(f"Operando derecho de || debe ser booleano, encontrado {node.right.type}")
+        
+        node.type = 'bool'
+        return True
+    
+    def visit_LogicalAnd(self, node):
+        """Visitor para operador AND lógico (&&) con evaluación de cortocircuito"""
+        self.visit(node.left)
+        
+        # Verificar que el operando izquierdo sea booleano
+        if hasattr(node.left, 'type') and node.left.type != 'bool':
+            self.errors.append(f"Operando izquierdo de && debe ser booleano, encontrado {node.left.type}")
+        
+        # Para short-circuit, el operando derecho solo se evalúa si es necesario
+        # Pero para análisis semántico, debemos procesarlo para verificar tipos
+        self.visit(node.right)
+        
+        if hasattr(node.right, 'type') and node.right.type != 'bool':
+            self.errors.append(f"Operando derecho de && debe ser booleano, encontrado {node.right.type}")
+        
+        node.type = 'bool'
+        return True
+    
+    # NUEVO: Visitor para LogicalOp genérico
+    def visit_LogicalOp(self, node):
+        """Visitor para operadores lógicos genéricos (&&, ||)"""
+        self.visit(node.left)
+        self.visit(node.right)
+        
+        # Verificar que ambos operandos sean booleanos
+        left_type = getattr(node.left, 'type', None)
+        right_type = getattr(node.right, 'type', None)
+        
+        if left_type != 'bool':
+            self.errors.append(f"Operando izquierdo de {node.op} debe ser booleano, encontrado {left_type}")
+        
+        if right_type != 'bool':
+            self.errors.append(f"Operando derecho de {node.op} debe ser booleano, encontrado {right_type}")
+        
+        # Los operadores lógicos siempre devuelven bool
+        node.type = 'bool'
+        return True
+    
+    # NUEVO: Visitor para UnaryOp
+    def visit_UnaryOp(self, node):
+        """Visitor para operadores unarios (+, -, !, *)"""
+        self.visit(node.operand)
+        
+        operand_type = getattr(node.operand, 'type', None)
+        
+        if node.op == '!':
+            # NOT lógico requiere operando booleano
+            if operand_type != 'bool':
+                self.errors.append(f"Operador ! requiere operando booleano, encontrado {operand_type}")
+                return False
+            node.type = 'bool'
+        elif node.op in ['+', '-']:
+            # Más y menos unario requieren operandos numéricos
+            if operand_type not in ['int', 'float']:
+                self.errors.append(f"Operador {node.op} requiere operando numérico, encontrado {operand_type}")
+                return False
+            node.type = operand_type  # Mismo tipo que el operando
+        elif node.op == '*':
+            # Desreferenciación de puntero (si se soporta)
+            # Por ahora asumimos que es válido
+            node.type = operand_type
+        else:
+            self.errors.append(f"Operador unario desconocido: {node.op}")
+            return False
+        
+        return True
+    
+    # NUEVO: Visitor para Float (literal)
+    def visit_Float(self, node):
+        """Visitor para literales de punto flotante"""
+        node.type = 'float'
+        return True
+    
+    # NUEVO: Visitor para Boolean (literal)
+    def visit_Boolean(self, node):
+        """Visitor para literales booleanos"""
+        node.type = 'bool'
+        return True
+    
+    # NUEVO: Visitor para Integer (literal)
+    def visit_Integer(self, node):
+        """Visitor para literales enteros"""
+        node.type = 'int'
+        return True
+    
+    # NUEVO: Visitor para String (literal)
+    def visit_String(self, node):
+        """Visitor para literales de cadena"""
+        node.type = 'string'
+        return True
+    
+    def visit_Literal(self, node):
+        """Visitor para literales (números, strings, booleanos)"""
+        # El tipo ya debería estar asignado por el parser
+        if not hasattr(node, 'type'):
+            if isinstance(node.value, bool):
+                node.type = 'bool'
+            elif isinstance(node.value, int):
+                node.type = 'int'
+            elif isinstance(node.value, float):
+                node.type = 'float'
+            elif isinstance(node.value, str):
+                node.type = 'string'
+        return True
+    
+    def visit_Char(self, node):
+        """Visitor para literales de caracteres"""
+        node.type = 'char'
+        return True
+    
+    def visit_CharLiteral(self, node):
+        """Visitor alternativo para literales de caracteres"""
+        node.type = 'char'
+        return True
+    
     def visit_Assignment(self, node):
         # Verificar que el lado izquierdo sea una ubicación válida
         if not isinstance(node.location, Location):
             self.errors.append("Lado izquierdo de asignación debe ser una ubicación")
             return False
         
-        node.location.accept(self)
-        node.expr.accept(self)
+        self.visit(node.location)  # Cambiar a visit()
+        self.visit(node.expr)      # Cambiar a visit()
         
         # Verificar tipos compatibles
         if not node.location.type:
@@ -144,68 +391,37 @@ class SemanticVisitor:
             return False
         return True
     
-    def visit_If(self, node):
+    def visit_If(self, node, *args, **kwargs):
         # Verificar condición
-        node.test.accept(self)
-        if node.test.type != 'bool':
+        self.visit(node.test)
+        if hasattr(node.test, 'type') and node.test.type != 'bool':
             self.errors.append("La condición del if debe ser booleana")
         
         # Nuevo ámbito para el bloque then
         then_scope = SymbolTab("if_block", self.current_scope)
         self.current_scope = then_scope
-        node.consequence.accept(self)
+        self.visit(node.consequence)
         self.current_scope = then_scope.parent
         
         # Bloque else si existe
         if node.alternative:
             else_scope = SymbolTab("else_block", self.current_scope)
             self.current_scope = else_scope
-            node.alternative.accept(self)
+            self.visit(node.alternative)
             self.current_scope = else_scope.parent
         
         return True
     
-    def visit_Block(self, node):
+    def visit_Block(self, node, *args, **kwargs):
         # Nuevo ámbito para el bloque
         block_scope = SymbolTab("block", self.current_scope)
         self.current_scope = block_scope
         
         for stmt in node.statements:
-            stmt.accept(self)
+            self.visit(stmt)
         
         self.current_scope = block_scope.parent
         return True
-    
-    def visit_Return(self, node):
-        # Verificar compatibilidad con tipo de retorno de la función
-        current_function = self._get_current_function()
-        if not current_function:
-            self.errors.append("Return fuera de función")
-            return False
-        
-        node.expr.accept(self)
-        
-        if current_function.return_type == 'void' and node.expr:
-            self.errors.append("Función void no debe retornar valor")
-        elif current_function.return_type != 'void':
-            if not node.expr:
-                self.errors.append("Se esperaba valor de retorno")
-            elif not Types.get_wider_type(current_function.return_type, node.expr.type):
-                self.errors.append(
-                    f"Tipo de retorno incompatible: " +
-                    f"esperado {current_function.return_type}, " +
-                    f"obtenido {node.expr.type}")
-        
-        return True
-    
-    def _get_current_function(self):
-        """Obtiene la función actual basada en el ámbito"""
-        scope = self.current_scope
-        while scope:
-            if scope.scope_type == "function":
-                return scope.get(scope.name)
-            scope = scope.parent
-        return None
 
     def print_errors(self):
         """Imprime todos los errores encontrados"""

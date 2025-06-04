@@ -10,12 +10,12 @@ class ASTNode:
         self.temp_var = None     # Variable temporal asociada (para código intermedio)
         self.quad = None         # Cuádruplo inicial asociado (para generación de código)
         
-    def accept(self, visitor):
-        """Método para implementar el patrón Visitor"""
+    def accept(self, visitor, *args, **kwargs):
+        """Método para implementar el patrón Visitor (versión corregida)"""
         method_name = f'visit_{self.__class__.__name__}'
         visitor_method = getattr(visitor, method_name, None)
-        if visitor_method:
-            return visitor_method(self)
+        if visitor_method is not None:
+            return visitor_method(self, *args, **kwargs)
         raise NotImplementedError(f"No visitor method for {self.__class__.__name__}")
 
 # ---------------------------------------------------------------------
@@ -446,6 +446,13 @@ class Program(ASTNode):
 # ---------------------------------------------------------------------
 
 class ASTVisitor:
-    """Clase base para visitantes del AST"""
-    def visit(self, node):
-        return node.accept(self)
+    """Clase base para visitantes del AST (versión mejorada)"""
+    def visit(self, node, *args, **kwargs):
+        """Método principal para visitar nodos"""
+        if node is None:
+            return None
+        return node.accept(self, *args, **kwargs)
+    
+    def generic_visit(self, node, *args, **kwargs):
+        """Método genérico para nodos no implementados"""
+        raise NotImplementedError(f"No visitor method implemented for {type(node).__name__}")

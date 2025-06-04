@@ -113,7 +113,7 @@ class Parser:
                 if self.peek_token and self.peek_token.type == TokenType.LPAREN:
                     expr = self.parse_function_call()
                     self.consume(TokenType.SEMI, "Falta ';' después de la llamada a función")
-                    return expr
+                    return ExpressionStatement(expr)
                 return self.parse_assignment()
             elif token_type == TokenType.LBRACE:
                 return self.parse_block()
@@ -122,7 +122,7 @@ class Parser:
                 expr = self.parse_expression()
                 if expr:
                     self.consume(TokenType.SEMI, "Falta ';' después de la expresión")
-                    return expr
+                    return ExpressionStatement(expr)
                 else:
                     self.error_handler.add_syntax_error(
                         f"Token inesperado: {token_type.name}",
@@ -134,15 +134,15 @@ class Parser:
             self.error_handler.add_error(str(e), self.current_token.lineno if self.current_token else 0)
             raise
     
-    def parse_import(self) -> Import:
+    def parse_import(self) -> ImportDecl:
         """Analiza declaraciones de importación"""
         self.consume(TokenType.IMPORT)
         module_name = self.consume(TokenType.STRING, "Se esperaba nombre del módulo después de 'import'").value
         self.consume(TokenType.SEMI, "Falta ';' después de la declaración import")
-        return Import(module_name.strip('"'))
+        return ImportDecl(module_name.strip('"'))
     
     def parse_declaration(self) -> Declaration:
-        """Analiza declaraciones de variables y constantes"""
+        """Analiza declaraciones de variables, constantes y arrays"""
         is_const = self.current_token.type == TokenType.CONST
         self.consume()  # Consume VAR o CONST
         
@@ -154,21 +154,54 @@ class Parser:
                                                                TokenType.STRING_TYPE]:
             var_type = self.consume().value
         
+        # Verificar si es declaración de array
+        if self.current_token and self.current_token.type == TokenType.LBRACKET:
+            self.consume(TokenType.LBRACKET)
+            size = None
+            if self.current_token.type != TokenType.RBRACKET:
+                size = self.parse_expression()
+            self.consume(TokenType.RBRACKET, "Falta ']' en la declaración del array")
+            
+            initial_value = None
+            if self.current_token and self.current_token.type == TokenType.ASSIGN:
+                self.consume(TokenType.ASSIGN)
+                initial_value = self.parse_expression()
+            
+            self.consume(TokenType.SEMI, "Falta ';' después de la declaración")
+            return ArrayDecl(name, var_type, size, initial_value)
+        
+        # Declaración normal
         initial_value = None
         if self.current_token and self.current_token.type == TokenType.ASSIGN:
             self.consume(TokenType.ASSIGN)
             initial_value = self.parse_expression()
         
         self.consume(TokenType.SEMI, "Falta ';' después de la declaración")
-        return Declaration(name, var_type, initial_value, is_const)
+        
+        # CORRECCIÓN: Usar los constructores específicos
+        if is_const:
+            return ConstantDecl(name, initial_value)
+        else:
+            return VariableDecl(name, var_type, initial_value)
     
     def parse_assignment(self) -> Assignment:
-        """Analiza asignaciones"""
+        """Analiza asignaciones (incluyendo asignaciones a arrays)"""
         name = self.consume(TokenType.ID).value
+        location = Location(name)
+        
+        # Verificar si es acceso a array
+        if self.current_token and self.current_token.type == TokenType.LBRACKET:
+            self.consume(TokenType.LBRACKET)
+            index = self.parse_expression()
+            self.consume(TokenType.RBRACKET, "Falta ']' para cerrar el acceso al array")
+            location = ArrayAccess(location, index)
+        
         self.consume(TokenType.ASSIGN, "Se esperaba '=' en la asignación")
         value = self.parse_expression()
         self.consume(TokenType.SEMI, "Falta ';' después de la asignación")
-        return Assignment(name, value)
+        
+        # CORRECCIÓN: Crear Location para el lado izquierdo
+        return Assignment(location, value)
     
     def parse_print(self) -> Print:
         """Analiza declaraciones print"""
@@ -180,9 +213,7 @@ class Parser:
     def parse_if(self) -> If:
         """Analiza declaraciones if"""
         self.consume(TokenType.IF)
-        self.consume(TokenType.LPAREN, "Falta '(' después de 'if'")
         condition = self.parse_expression()
-        self.consume(TokenType.RPAREN, "Falta ')' después de la condición")
         
         then_stmt = self.parse_statement()
         
@@ -196,9 +227,7 @@ class Parser:
     def parse_while(self) -> While:
         """Analiza loops while"""
         self.consume(TokenType.WHILE)
-        self.consume(TokenType.LPAREN, "Falta '(' después de 'while'")
         condition = self.parse_expression()
-        self.consume(TokenType.RPAREN, "Falta ')' después de la condición")
         
         self.loop_stack.append('while')
         body = self.parse_statement()
@@ -235,7 +264,8 @@ class Parser:
                 name = self.consume(TokenType.ID).value
                 self.consume(TokenType.ASSIGN)
                 value = self.parse_expression()
-                update = Assignment(name, value)
+                location = Location(name)
+                update = Assignment(location, value)
             else:
                 update = self.parse_expression()
         
@@ -247,41 +277,51 @@ class Parser:
         
         return For(init, condition, update, body)
     
-    def parse_function(self) -> Function:
+    def parse_function(self) -> FunctionDecl:
         """Analiza definiciones de funciones"""
         self.consume(TokenType.FUNC)
         name = self.consume(TokenType.ID, "Se esperaba nombre de función").value
         
         self.consume(TokenType.LPAREN, "Falta '(' después del nombre de función")
         
-        # Parámetros
+        # Parámetros - CORRECCIÓN: Crear objetos Parameter
         params = []
         if self.current_token.type != TokenType.RPAREN:
             # Primer parámetro
             param_name = self.consume(TokenType.ID, "Se esperaba nombre de parámetro").value
-            param_type = self.consume(TokenType.ID, "Se esperaba tipo de parámetro").value
-            params.append((param_name, param_type))
+            # MEJORADO: Aceptar tipos específicos de tokens
+            if self.current_token.type in [TokenType.INT, TokenType.FLOAT_TYPE, TokenType.BOOL, 
+                                           TokenType.CHAR_TYPE, TokenType.STRING_TYPE]:
+                param_type = self.consume().value
+            else:
+                param_type = self.consume(TokenType.ID, "Se esperaba tipo de parámetro").value
+            params.append(Parameter(param_name, param_type))
             
             # Parámetros adicionales
             while self.current_token.type == TokenType.COMMA:
                 self.consume(TokenType.COMMA)
                 param_name = self.consume(TokenType.ID, "Se esperaba nombre de parámetro").value
-                param_type = self.consume(TokenType.ID, "Se esperaba tipo de parámetro").value
-                params.append((param_name, param_type))
+                if self.current_token.type in [TokenType.INT, TokenType.FLOAT_TYPE, TokenType.BOOL, 
+                                               TokenType.CHAR_TYPE, TokenType.STRING_TYPE]:
+                    param_type = self.consume().value
+                else:
+                    param_type = self.consume(TokenType.ID, "Se esperaba tipo de parámetro").value
+                params.append(Parameter(param_name, param_type))
         
         self.consume(TokenType.RPAREN, "Falta ')' después de los parámetros")
         
         # Tipo de retorno (opcional)
         return_type = None
-        if self.current_token.type in [TokenType.INT, TokenType.FLOAT_TYPE, TokenType.BOOL, 
-                                       TokenType.CHAR_TYPE, TokenType.STRING_TYPE]:
+        if self.current_token and self.current_token.type in [TokenType.INT, TokenType.FLOAT_TYPE, TokenType.BOOL, 
+                                                               TokenType.CHAR_TYPE, TokenType.STRING_TYPE]:
             return_type = self.consume().value
         
         self.function_stack.append(name)
         body = self.parse_statement()
         self.function_stack.pop()
         
-        return Function(name, params, return_type, body)
+        # CORRECCIÓN: Usar el constructor correcto
+        return FunctionDecl(name, params, return_type, body)
     
     def parse_return(self) -> Return:
         """Analiza declaraciones return"""
@@ -350,7 +390,14 @@ class Parser:
                 )
                 return left
             
-            left = BinOp(op_token.value, left, right)
+            # Determinar si es operación de comparación o lógica
+            if op_token.type in [TokenType.EQ, TokenType.NE, TokenType.LT, 
+                               TokenType.LE, TokenType.GT, TokenType.GE]:
+                left = CompareOp(op_token.value, left, right)
+            elif op_token.type in [TokenType.AND, TokenType.OR]:
+                left = LogicalOp(op_token.value, left, right)
+            else:
+                left = BinOp(op_token.value, left, right)
         
         return left
     
@@ -406,12 +453,19 @@ class Parser:
             return None
     
     def parse_id_expression(self) -> Expression:
-        """Analiza expresiones que comienzan con un ID (variable, llamada a función)"""
+        """Analiza expresiones que comienzan con un ID (variable, llamada a función, acceso a array)"""
         ident = self.consume(TokenType.ID).value
         
         if self.current_token and self.current_token.type == TokenType.LPAREN:
             # Llamada a función
             return self.parse_function_call_with_name(ident)
+        elif self.current_token and self.current_token.type == TokenType.LBRACKET:
+            # Acceso a array
+            location = Location(ident)
+            self.consume(TokenType.LBRACKET)
+            index = self.parse_expression()
+            self.consume(TokenType.RBRACKET, "Falta ']' para cerrar el acceso al array")
+            return ArrayAccess(location, index)
         
         # Variable simple
         return Location(ident)
