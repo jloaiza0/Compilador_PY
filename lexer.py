@@ -1,5 +1,96 @@
-#lexer.py
+# lexer.py
 import re
+from enum import Enum
+
+# Enumeración de tipos de tokens
+class TokenType(Enum):
+    # Palabras reservadas del lenguaje
+    CONST = 'CONST'
+    VAR = 'VAR'
+    PRINT = 'PRINT'
+    RETURN = 'RETURN'
+    BREAK = 'BREAK'
+    CONTINUE = 'CONTINUE'
+    IF = 'IF'
+    ELSE = 'ELSE'
+    WHILE = 'WHILE'
+    FOR = 'FOR'
+    FUNC = 'FUNC'
+    IMPORT = 'IMPORT'
+    TRUE = 'TRUE'
+    FALSE = 'FALSE'
+    INPUT = 'INPUT'
+
+    # Tipos de datos
+    INT = 'INT'
+    FLOAT_TYPE = 'FLOAT_TYPE'
+    BOOL = 'BOOL'
+    STRING_TYPE = 'STRING_TYPE'
+    CHAR_TYPE = 'CHAR_TYPE'
+
+    # Literales
+    HEX = 'HEX'
+    BINARY = 'BINARY'
+    FLOAT = 'FLOAT'
+    INTEGER = 'INTEGER'
+    CHAR = 'CHAR'
+    STRING = 'STRING'
+
+    # Identificadores
+    ID = 'ID'
+
+    # Operadores compuestos
+    INT_DIV = 'INT_DIV'
+    POWER = 'POWER'
+
+    # Operadores de comparación y lógicos
+    LE = 'LE'
+    GE = 'GE'
+    EQ = 'EQ'
+    NE = 'NE'
+    AND = 'AND'
+    OR = 'OR'
+
+    # Operadores de incremento y asignación compuesta
+    INC = 'INC'
+    DEC = 'DEC'
+    PLUS_ASSIGN = 'PLUS_ASSIGN'
+    MINUS_ASSIGN = 'MINUS_ASSIGN'
+    TIMES_ASSIGN = 'TIMES_ASSIGN'
+    DIV_ASSIGN = 'DIV_ASSIGN'
+    MOD_ASSIGN = 'MOD_ASSIGN'
+    POW_ASSIGN = 'POW_ASSIGN'
+
+    # Operadores de un solo carácter
+    LT = 'LT'
+    GT = 'GT'
+    PLUS = 'PLUS'
+    MINUS = 'MINUS'
+    TIMES = 'TIMES'
+    DIVIDE = 'DIVIDE'
+    MOD = 'MOD'
+    GROW = 'GROW'
+    ASSIGN = 'ASSIGN'
+    NOT = 'NOT'
+
+    # Símbolos y delimitadores
+    SEMI = 'SEMI'
+    LPAREN = 'LPAREN'
+    RPAREN = 'RPAREN'
+    LBRACE = 'LBRACE'
+    RBRACE = 'RBRACE'
+    LBRACKET = 'LBRACKET'
+    RBRACKET = 'RBRACKET'
+    COMMA = 'COMMA'
+    DOT = 'DOT'
+    COLON = 'COLON'
+    DEREF = 'DEREF'
+
+    # Especiales
+    WHITESPACE = 'WHITESPACE'
+    MISMATCH = 'MISMATCH'
+    EOF = 'EOF'
+
 # Definición de tokens con orden de precedencia (los más específicos primero)
 TOKEN_SPEC = [
     # Palabras reservadas del lenguaje
@@ -12,6 +103,7 @@ TOKEN_SPEC = [
     ('IF', r'\bif\b'),
     ('ELSE', r'\belse\b'),
     ('WHILE', r'\bwhile\b'),
+    ('FOR', r'\bfor\b'),
     ('FUNC', r'\bfunc\b'),
     ('IMPORT', r'\bimport\b'),
     ('TRUE', r'\btrue\b'),
@@ -48,7 +140,7 @@ TOKEN_SPEC = [
     # Operadores de comparación y lógicos
     ('LE', r'<='), ('GE', r'>='),        # Menor/mayor o igual
     ('EQ', r'=='), ('NE', r'!='),        # Igualdad/desigualdad
-    ('LAND', r'&&'), ('LOR', r'\|\|'),   # AND/OR lógico
+    ('AND', r'&&'), ('OR', r'\|\|'),     # AND/OR lógico
 
     # Operadores de incremento y asignación compuesta
     ('INC', r'\+\+'), ('DEC', r'--'),    # Incremento/decremento
@@ -62,6 +154,7 @@ TOKEN_SPEC = [
     ('TIMES', r'\*'), ('DIVIDE', r'/'),  # Multiplicación/división
     ('MOD', r'%'), ('GROW', r'\^'),      # Módulo, operador especial
     ('ASSIGN', r'='),                    # Asignación simple
+    ('NOT', r'!'),                       # Negación lógica
 
     # Símbolos y delimitadores
     ('SEMI', r';'),                      # Punto y coma
@@ -83,13 +176,13 @@ token_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in TOKEN_SPEC 
 
 class Token:
     """Clase que representa un token con tipo, valor y número de línea"""
-    def __init__(self, type: str, value: str, lineno: int):
-        self.type = type   # Tipo de token (ej. 'ID', 'INTEGER')
-        self.value = value # Valor literal del token
-        self.lineno = lineno # Línea donde aparece el token
+    def __init__(self, type_str: str, value: str, lineno: int):
+        self.type = TokenType(type_str)  # Convierte string a enum
+        self.value = value               # Valor literal del token
+        self.lineno = lineno            # Línea donde aparece el token
 
     def __repr__(self):
-        return f"Token(type='{self.type}', value='{self.value}', lineno={self.lineno})"
+        return f"Token(type={self.type.name}, value='{self.value}', lineno={self.lineno})"
 
 def tokenize(text, error_handler):
     """
@@ -164,6 +257,8 @@ def tokenize(text, error_handler):
         tokens.append(Token(kind, value, lineno))
         pos += len(value)
     
+    # Agregar token EOF al final
+    tokens.append(Token('EOF', '', lineno))
     return tokens
 
 # Ejemplo de uso del lexer (solo se ejecuta si es el módulo principal)
