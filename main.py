@@ -1,12 +1,23 @@
 import tkinter as tk
-from tkinter import filedialog, scrolledtext, messagebox
+from tkinter import filedialog, scrolledtext, messagebox, ttk
 import os
 import sys
-from lexer import *
+import io
+from contextlib import redirect_stdout
+from lexer import tokenize, Token  # Importar las funciones/clases que sí existen
+from Error import ErrorHandler  # Importar el manejador de errores
+
+# Importaciones del compilador
 from parser import Parser
 from SemanticVisitor import SemanticVisitor
 from IntermediateCode import IntermediateCodeGenerator
 from StackMachine import StackMachine
+
+# Importaciones de los nodos AST
+from ASTnodes import (
+    ASTNode, Integer, Float, Boolean, String, Char, 
+    Location, BinOp, CompareOp, LogicalOp
+)
 
 class CompilerGUI:
     def __init__(self, root):
@@ -36,7 +47,7 @@ class CompilerGUI:
         self.run_button.pack(side=tk.LEFT, padx=5)
         
         # Pestañas
-        self.notebook = tk.ttk.Notebook(self.root)
+        self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True)
         
         # Pestaña de código fuente
@@ -87,12 +98,15 @@ class CompilerGUI:
         
         if file_path:
             self.current_file = file_path
-            with open(file_path, 'r') as file:
-                content = file.read()
-                self.source_text.delete(1.0, tk.END)
-                self.source_text.insert(tk.END, content)
-                self.compile_button.config(state=tk.NORMAL)
-                self.clear_all_tabs()
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                    self.source_text.delete(1.0, tk.END)
+                    self.source_text.insert(tk.END, content)
+                    self.compile_button.config(state=tk.NORMAL)
+                    self.clear_all_tabs()
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al abrir el archivo:\n{str(e)}")
     
     def clear_all_tabs(self):
         for text_widget in [self.tokens_text, self.ast_text, self.quad_text, self.output_text]:
@@ -100,6 +114,7 @@ class CompilerGUI:
     
     def compile(self):
         if not self.current_file:
+            messagebox.showwarning("Advertencia", "No hay archivo seleccionado")
             return
             
         try:
@@ -107,21 +122,35 @@ class CompilerGUI:
             self.clear_all_tabs()
             
             # 1. Análisis léxico
-            with open(self.current_file, 'r') as file:
+            with open(self.current_file, 'r', encoding='utf-8') as file:
                 source_code = file.read()
             
-            lexer = Lexer(source_code)
-            tokens = lexer.tokenize()
+            # Crear manejador de errores y tokenizar
+            error_handler = ErrorHandler()
+            tokens = tokenize(source_code, error_handler)
             
+            # Verificar si hay errores léxicos
+            if error_handler.has_errors():
+                self.show_lexical_errors(error_handler.errors)
+                return
+            
+            # Mostrar tokens
             self.tokens_text.insert(tk.END, "TOKENS:\n" + "="*50 + "\n")
             for token in tokens:
                 self.tokens_text.insert(tk.END, f"{token}\n")
             
-            # 2. Análisis sintáctico
-            parser = Parser(tokens)
+            # 2. Análisis sintáctico - LÍNEA CORREGIDA
+            # Crear un nuevo error_handler para el parser o reutilizar el existente
+            parser_error_handler = ErrorHandler()  # Nuevo manejador para el parser
+            parser = Parser(tokens, parser_error_handler)
             ast = parser.parse()
             
-            self.ast_text.insert(tk.END, "ÁRBOL DE SINTAXIS ABSTRACT (AST):\n" + "="*50 + "\n")
+            # Verificar si hay errores sintácticos
+            if parser_error_handler.has_errors():
+                self.show_parsing_errors(parser_error_handler.errors)
+                return
+            
+            self.ast_text.insert(tk.END, "ÁRBOL DE SINTAXIS ABSTRACTA (AST):\n" + "="*50 + "\n")
             self.ast_text.insert(tk.END, self.ast_to_string(ast))
             
             # 3. Análisis semántico
@@ -143,21 +172,28 @@ class CompilerGUI:
             self.run_button.config(state=tk.NORMAL)
             self.output_text.insert(tk.END, "Compilación exitosa!\n")
             
+        except ImportError as e:
+            error_msg = f"Error de importación: {str(e)}\nVerifica que todos los módulos existan y estén correctamente nombrados."
+            self.output_text.insert(tk.END, error_msg + "\n")
+            messagebox.showerror("Error de importación", error_msg)
+        except AttributeError as e:
+            error_msg = f"Error de atributo: {str(e)}\nVerifica que las clases tengan los métodos esperados."
+            self.output_text.insert(tk.END, error_msg + "\n")
+            messagebox.showerror("Error de atributo", error_msg)
         except Exception as e:
-            self.output_text.insert(tk.END, f"Error durante la compilación:\n{str(e)}\n")
-            messagebox.showerror("Error de compilación", str(e))
+            error_msg = f"Error durante la compilación:\n{str(e)}"
+            self.output_text.insert(tk.END, error_msg + "\n")
+            messagebox.showerror("Error de compilación", error_msg)
     
     def run(self):
         if not self.quadruples:
+            messagebox.showwarning("Advertencia", "No hay código compilado para ejecutar")
             return
             
         try:
             self.output_text.insert(tk.END, "\nEJECUCIÓN:\n" + "="*50 + "\n")
             
             # Redirigir stdout a nuestro widget de salida
-            import io
-            from contextlib import redirect_stdout
-            
             output = io.StringIO()
             with redirect_stdout(output):
                 machine = StackMachine(self.quadruples, self.function_directory)
@@ -167,20 +203,26 @@ class CompilerGUI:
             self.output_text.insert(tk.END, "\nEjecución completada exitosamente!\n")
             
         except Exception as e:
-            self.output_text.insert(tk.END, f"Error durante la ejecución:\n{str(e)}\n")
-            messagebox.showerror("Error de ejecución", str(e))
+            error_msg = f"Error durante la ejecución:\n{str(e)}"
+            self.output_text.insert(tk.END, error_msg + "\n")
+            messagebox.showerror("Error de ejecución", error_msg)
     
     def ast_to_string(self, node, indent=0):
         """Convierte el AST a una representación de cadena legible"""
+        if node is None:
+            return "  " * indent + "None\n"
+        
         result = "  " * indent + f"{node.__class__.__name__}"
         
         # Mostrar atributos relevantes
         if isinstance(node, (Integer, Float, Boolean, String, Char)):
-            result += f"(value={node.value})"
+            result += f"(value={getattr(node, 'value', 'N/A')})"
         elif isinstance(node, Location):
-            result += f"(name={node.name})"
+            result += f"(name={getattr(node, 'name', 'N/A')})"
         elif isinstance(node, (BinOp, CompareOp, LogicalOp)):
-            result += f"(op={node.op})"
+            result += f"(op={getattr(node, 'op', 'N/A')})"
+        elif hasattr(node, 'name'):
+            result += f"(name={getattr(node, 'name', 'N/A')})"
         
         result += "\n"
         
@@ -192,9 +234,10 @@ class CompilerGUI:
             if isinstance(child, ASTNode):
                 result += self.ast_to_string(child, indent + 1)
             elif isinstance(child, list):
-                for item in child:
+                for i, item in enumerate(child):
                     if isinstance(item, ASTNode):
-                        result += self.ast_to_string(item, indent + 1)
+                        result += "  " * (indent + 1) + f"[{i}]:\n"
+                        result += self.ast_to_string(item, indent + 2)
         
         return result
     
@@ -204,11 +247,29 @@ class CompilerGUI:
         for error in errors:
             self.output_text.insert(tk.END, f"- {error}\n")
         messagebox.showerror("Errores de compilación", "Se encontraron errores durante la compilación")
+    
+    def show_lexical_errors(self, errors):
+        """Muestra errores léxicos en el output"""
+        self.output_text.insert(tk.END, "ERRORES LÉXICOS:\n" + "="*50 + "\n")
+        for error in errors:
+            self.output_text.insert(tk.END, f"- {error}\n")
+        messagebox.showerror("Errores léxicos", "Se encontraron errores durante el análisis léxico")
+    
+    def show_parsing_errors(self, errors):
+        """Muestra errores sintácticos en el output"""
+        self.output_text.insert(tk.END, "ERRORES SINTÁCTICOS:\n" + "="*50 + "\n")
+        for error in errors:
+            self.output_text.insert(tk.END, f"- {error}\n")
+        messagebox.showerror("Errores sintácticos", "Se encontraron errores durante el análisis sintáctico")
 
 def main():
-    root = tk.Tk()
-    app = CompilerGUI(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = CompilerGUI(root)
+        root.mainloop()
+    except Exception as e:
+        print(f"Error al iniciar la aplicación: {e}")
+        input("Presiona Enter para continuar...")
 
 if __name__ == "__main__":
     main()

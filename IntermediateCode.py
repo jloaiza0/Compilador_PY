@@ -1,3 +1,4 @@
+# IntermediateCode.py
 from ASTnodes import *
 from SymbolInfo import SymbolFactory
 from enum import Enum, auto
@@ -29,6 +30,9 @@ class Operation(Enum):
     PRINT = auto()
     READ = auto()
     VERIFY = auto()  # Para verificación de límites de arreglos
+    LABEL = auto()   # Para etiquetas
+    ENDFUNC = auto() # Para marcar fin de función
+    END = auto()     # Para marcar fin de programa
 
 class Quadruple:
     """Representación de un cuádruplo (operación, op1, op2, resultado)"""
@@ -55,7 +59,7 @@ class IntermediateCodeGenerator:
     def generate_temp(self, dtype):
         """Genera una variable temporal"""
         self.temp_counter += 1
-        return SymbolFactory.create_temp(dtype)
+        return SymbolFactory.create_temp(f"t{self.temp_counter}", dtype)
     
     def new_label(self):
         """Genera una nueva etiqueta"""
@@ -83,8 +87,8 @@ class IntermediateCodeGenerator:
         # Registrar función en el directorio
         func_entry = {
             'start_quad': len(self.quadruples),
-            'params': [(p.name, p.param_type) for p in node.params],
-            'return_type': node.return_type,
+            'params': [(p.name, getattr(p, 'param_type', getattr(p, 'type', 'int'))) for p in node.params],
+            'return_type': getattr(node, 'return_type', 'void'),
             'local_vars': {},
             'temp_vars': {}
         }
@@ -92,26 +96,29 @@ class IntermediateCodeGenerator:
         self.current_function = node.name
         
         # Generar cuádruplo de inicio de función
-        self.add_quadruple(Operation.ENDFUNC)  # Marcador de posición
+        start_index = len(self.quadruples)
+        self.add_quadruple(Operation.ENDFUNC, None, None, node.name)
+        func_entry['start_quad'] = start_index
         
         # Procesar parámetros y cuerpo
         for param in node.params:
-            func_entry['local_vars'][param.name] = param.param_type
+            param_type = getattr(param, 'param_type', getattr(param, 'type', 'int'))
+            func_entry['local_vars'][param.name] = param_type
         
-        node.body.accept(self)
+        if hasattr(node, 'body') and node.body:
+            node.body.accept(self)
         
         # Si no hay return explícito, añadir uno para funciones void
-        if node.return_type == 'void' and (not self.quadruples or self.quadruples[-1].op != Operation.RETURN):
+        if (getattr(node, 'return_type', 'void') == 'void' and 
+            (not self.quadruples or self.quadruples[-1].op != Operation.RETURN)):
             self.add_quadruple(Operation.RETURN, None, None, None)
-        
-        # Actualizar marcador de posición con el índice correcto
-        start_quad = func_entry['start_quad']
-        self.quadruples[start_quad] = Quadruple(Operation.ENDFUNC, None, None, node.name)
     
     def visit_BinOp(self, node):
         # Procesar operandos
-        node.left.accept(self)
-        node.right.accept(self)
+        if hasattr(node, 'left') and node.left:
+            node.left.accept(self)
+        if hasattr(node, 'right') and node.right:
+            node.right.accept(self)
         
         # Mapear operador a operación
         op_mapping = {
@@ -130,43 +137,61 @@ class IntermediateCodeGenerator:
             '>=': Operation.GTE
         }
         
+        if node.op not in op_mapping:
+            raise Exception(f"Operador '{node.op}' no soportado")
+        
+        # Determinar tipo del resultado
+        result_type = getattr(node, 'type', 'int')
+        
         # Generar temporal para resultado
-        temp = self.generate_temp(node.type)
-        self.function_directory[self.current_function]['temp_vars'][temp.name] = temp.dtype
+        temp = self.generate_temp(result_type)
+        if self.current_function:
+            self.function_directory[self.current_function]['temp_vars'][temp.name] = temp.dtype
+        
+        # Obtener temporales de los operandos
+        left_temp = getattr(node.left, 'temp_var', node.left) if hasattr(node, 'left') else None
+        right_temp = getattr(node.right, 'temp_var', node.right) if hasattr(node, 'right') else None
         
         # Generar cuádruplo
-        self.add_quadruple(op_mapping[node.op], node.left.temp_var, node.right.temp_var, temp)
+        self.add_quadruple(op_mapping[node.op], left_temp, right_temp, temp)
         node.temp_var = temp
     
     def visit_Assignment(self, node):
         # Procesar expresión
-        node.expr.accept(self)
+        if hasattr(node, 'expr') and node.expr:
+            node.expr.accept(self)
         
         # Verificar que la ubicación existe
-        if not node.location.symbol:
-            raise Exception(f"Variable '{node.location.name}' no declarada")
+        if hasattr(node, 'location') and not getattr(node.location, 'symbol', None):
+            raise Exception(f"Variable '{getattr(node.location, 'name', 'unknown')}' no declarada")
         
         # Generar cuádruplo de asignación
-        self.add_quadruple(Operation.ASSIGN, node.expr.temp_var, None, node.location.symbol)
+        expr_temp = getattr(node.expr, 'temp_var', node.expr) if hasattr(node, 'expr') else None
+        location_symbol = getattr(node.location, 'symbol', node.location) if hasattr(node, 'location') else None
+        
+        self.add_quadruple(Operation.ASSIGN, expr_temp, None, location_symbol)
     
     def visit_If(self, node):
         # Procesar condición
-        node.test.accept(self)
+        if hasattr(node, 'test') and node.test:
+            node.test.accept(self)
         
         # Generar etiquetas
         false_label = self.new_label()
         end_label = self.new_label()
         
         # Cuádruplo condicional
-        self.add_quadruple(Operation.GOTOF, node.test.temp_var, None, false_label)
+        test_temp = getattr(node.test, 'temp_var', node.test) if hasattr(node, 'test') else None
+        self.add_quadruple(Operation.GOTOF, test_temp, None, false_label)
         
         # Bloque then
-        node.consequence.accept(self)
+        if hasattr(node, 'consequence') and node.consequence:
+            node.consequence.accept(self)
         self.add_quadruple(Operation.GOTO, None, None, end_label)
         
         # Bloque else (si existe)
         self.add_quadruple(Operation.LABEL, None, None, false_label)
-        if node.alternative:
+        if hasattr(node, 'alternative') and node.alternative:
             node.alternative.accept(self)
         
         # Fin de la estructura
@@ -185,11 +210,15 @@ class IntermediateCodeGenerator:
         self.add_quadruple(Operation.LABEL, None, None, start_label)
         
         # Procesar condición
-        node.test.accept(self)
-        self.add_quadruple(Operation.GOTOF, node.test.temp_var, None, end_label)
+        if hasattr(node, 'test') and node.test:
+            node.test.accept(self)
+        
+        test_temp = getattr(node.test, 'temp_var', node.test) if hasattr(node, 'test') else None
+        self.add_quadruple(Operation.GOTOF, test_temp, None, end_label)
         
         # Bloque del cuerpo
-        node.body.accept(self)
+        if hasattr(node, 'body') and node.body:
+            node.body.accept(self)
         
         # Volver al inicio
         self.add_quadruple(Operation.GOTO, None, None, start_label)
@@ -198,18 +227,21 @@ class IntermediateCodeGenerator:
         self.add_quadruple(Operation.LABEL, None, None, end_label)
     
     def visit_Return(self, node):
-        if node.expr:
+        if hasattr(node, 'expr') and node.expr:
             node.expr.accept(self)
-            self.add_quadruple(Operation.RETURN, None, None, node.expr.temp_var)
+            expr_temp = getattr(node.expr, 'temp_var', node.expr)
+            self.add_quadruple(Operation.RETURN, None, None, expr_temp)
         else:
             self.add_quadruple(Operation.RETURN, None, None, None)
     
     def visit_FunctionCall(self, node):
         # Procesar argumentos
-        for arg in node.args:
-            arg.accept(self)
-            self.add_quadruple(Operation.PARAM, arg.temp_var, None, f"param{self.param_counter}")
-            self.param_counter += 1
+        if hasattr(node, 'args'):
+            for arg in node.args:
+                arg.accept(self)
+                arg_temp = getattr(arg, 'temp_var', arg)
+                self.add_quadruple(Operation.PARAM, arg_temp, None, f"param{self.param_counter}")
+                self.param_counter += 1
         
         # Generar temporal para el resultado (si no es void)
         func_info = self.function_directory.get(node.name)
@@ -218,7 +250,8 @@ class IntermediateCodeGenerator:
         
         if func_info['return_type'] != 'void':
             temp = self.generate_temp(func_info['return_type'])
-            self.function_directory[self.current_function]['temp_vars'][temp.name] = temp.dtype
+            if self.current_function:
+                self.function_directory[self.current_function]['temp_vars'][temp.name] = temp.dtype
             node.temp_var = temp
         else:
             node.temp_var = None
@@ -234,18 +267,44 @@ class IntermediateCodeGenerator:
     
     def visit_Integer(self, node):
         temp = self.generate_temp('int')
-        self.add_quadruple(Operation.ASSIGN, node.value, None, temp)
+        if self.current_function:
+            self.function_directory[self.current_function]['temp_vars'][temp.name] = temp.dtype
+        
+        value = getattr(node, 'value', 0)
+        self.add_quadruple(Operation.ASSIGN, value, None, temp)
         node.temp_var = temp
     
     def visit_Float(self, node):
         temp = self.generate_temp('float')
-        self.add_quadruple(Operation.ASSIGN, node.value, None, temp)
+        if self.current_function:
+            self.function_directory[self.current_function]['temp_vars'][temp.name] = temp.dtype
+        
+        value = getattr(node, 'value', 0.0)
+        self.add_quadruple(Operation.ASSIGN, value, None, temp)
         node.temp_var = temp
     
     def visit_Location(self, node):
-        if not node.symbol:
-            raise Exception(f"Variable '{node.name}' no declarada")
+        if not getattr(node, 'symbol', None):
+            raise Exception(f"Variable '{getattr(node, 'name', 'unknown')}' no declarada")
         node.temp_var = node.symbol
+    
+    def visit_Block(self, node):
+        """Visita un bloque de declaraciones"""
+        if hasattr(node, 'statements'):
+            for stmt in node.statements:
+                if stmt:
+                    stmt.accept(self)
+    
+    def visit_VarDecl(self, node):
+        """Visita una declaración de variable"""
+        # Las declaraciones de variables se manejan en el análisis semántico
+        # Aquí solo necesitamos registrarlas si tienen inicialización
+        if hasattr(node, 'init') and node.init:
+            node.init.accept(self)
+            # Crear asignación implícita
+            init_temp = getattr(node.init, 'temp_var', node.init)
+            var_symbol = getattr(node, 'symbol', node.name)
+            self.add_quadruple(Operation.ASSIGN, init_temp, None, var_symbol)
     
     def print_quads(self):
         """Imprime todos los cuádruplos generados"""
@@ -253,3 +312,7 @@ class IntermediateCodeGenerator:
         print("-" * 50)
         for i, quad in enumerate(self.quadruples):
             print(f"{i:4d} | {quad}")
+    
+    def get_function_directory(self):
+        """Retorna el directorio de funciones"""
+        return self.function_directory

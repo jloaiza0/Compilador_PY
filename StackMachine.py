@@ -1,5 +1,8 @@
+# stackmachine.py
 from enum import Enum
 from collections import defaultdict
+from SymbolInfo import SymbolInfo
+from IntermediateCode import Operation  # Asumiendo que Operation está en CodeGen
 
 class StackMachine:
     """Máquina de pila para ejecutar cuádruplos generados"""

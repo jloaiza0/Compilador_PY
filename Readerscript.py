@@ -1,7 +1,7 @@
 import sys
 from Error import ErrorHandler
-from Lexer import tokenize
-from Parser import Parser
+from lexer import tokenize
+from parser import Parser
 
 def main():
     # Verifica que se haya proporcionado un argumento (el nombre del archivo)

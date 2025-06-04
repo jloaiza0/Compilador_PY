@@ -105,6 +105,34 @@ class BinOp(Expression):
             
         return Types.check_binop(self.op, self.left.type, self.right.type)
 
+class CompareOp(Expression):
+    """Operación de comparación (==, !=, <, >, <=, >=)"""
+    def __init__(self, op, left, right):
+        super().__init__()
+        self.op = op
+        self.left = left
+        self.right = right
+        self.type = 'bool'  # Las comparaciones siempre devuelven booleano
+        
+    def __repr__(self):
+        return f"CompareOp({self.op}, {self.left}, {self.right})"
+    
+    def infer_type(self):
+        """Infiere el tipo resultante de la comparación"""
+        return 'bool'  # Siempre devuelve booleano
+
+class LogicalOp(Expression):
+    """Operación lógica (and, or)"""
+    def __init__(self, op, left, right):
+        super().__init__()
+        self.op = op
+        self.left = left
+        self.right = right
+        self.type = 'bool'
+        
+    def __repr__(self):
+        return f"LogicalOp({self.op}, {self.left}, {self.right})"
+
 class UnaryOp(Expression):
     """Operación unaria con verificación de tipos"""
     def __init__(self, op, operand):
@@ -259,6 +287,9 @@ class ImportDecl(Declaration):
         
     def __repr__(self):
         return f"ImportDecl({self.module_name})"
+
+# Alias para Import - para compatibilidad con el parser
+Import = ImportDecl
 
 class FunctionImportDecl(Declaration):
     """Declaración de importación de función"""
