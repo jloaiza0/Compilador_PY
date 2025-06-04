@@ -1,5 +1,5 @@
 try:
-    from Lexer import *
+    from lexer import *
     from ASTnodes import *
     from Error import ErrorHandler
     from ASTtoJSON import save_ast_to_json  # Importa la función para serializar el AST a JSON

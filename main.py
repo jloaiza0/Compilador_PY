@@ -4,7 +4,7 @@ import subprocess
 import os
 import sys
 from Readerscript import read_script
-from Parser import Parser
+from parser import Parser
 from Semanticcheker import SemanticChecker
 from Interpreter import Interpreter
 
