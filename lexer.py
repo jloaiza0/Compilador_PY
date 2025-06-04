@@ -31,17 +31,20 @@ reserved = {
     'string': 'TYPE',
     'void': 'TYPE',
     'null': 'NULL',
-    'print': 'PRINT'
+    'print': 'PRINT',
+    'main': 'MAIN'
 }
 
 token_specification = [
     # El orden es importante - los más específicos primero
     ('BLOCKCOMMENT', r'/\*[\s\S]*?\*/'),  # Comentarios multilínea
-    ('COMMENT', r'//.*'),  # Comentarios de línea
+    ('LINECOMMENT', r'//.*'),  # Comentarios de línea
     ('FLOAT', r'-?\d+\.\d+'),  # Números con punto decimal
-    ('NUMBER', r'-?\d+'),  # Enteros
+    ('INTEGER', r'-?\d+'),  # Enteros
     ('STRING', r'"(?:\\.|[^"\\])*"'),  # Strings con escape
     ('CHAR', r"'(?:\\.|[^'\\])'"),  # Caracteres
+    ('MEMORY', r'`[A-Za-z_][A-Za-z0-9_]*'),  # Acceso a memoria
+    ('ADDRESS', r'\^[A-Za-z_][A-Za-z0-9_]*'),  # Dirección de memoria
     ('EQ', r'=='),  # Operadores compuestos primero
     ('NE', r'!='),
     ('LE', r'<='),
@@ -55,6 +58,9 @@ token_specification = [
     ('DIVIDE', r'/'),
     ('MOD', r'%'),
     ('POW', r'\^'),
+    ('AND', r'&&'),
+    ('OR', r'\|\|'),
+    ('NOT', r'!'),
     ('LPAREN', r'\('),
     ('RPAREN', r'\)'),
     ('LBRACE', r'\{'),
@@ -63,6 +69,7 @@ token_specification = [
     ('RBRACKET', r'\]'),
     ('COMMA', r','),
     ('SEMICOLON', r';'),
+    ('COLON', r':'),
     ('ID', r'[A-Za-z_][A-Za-z0-9_]*'),
     ('WHITESPACE', r'[ \t\r]+'),  # Espacios y tabs
     ('NEWLINE', r'\n'),  # Manejo explícito de nuevas líneas
@@ -95,7 +102,7 @@ class Lexer:
             if kind == 'NEWLINE':
                 lineno += 1
                 continue
-            elif kind in ['WHITESPACE', 'COMMENT', 'BLOCKCOMMENT']:
+            elif kind in ['WHITESPACE', 'LINECOMMENT', 'BLOCKCOMMENT']:
                 if kind == 'BLOCKCOMMENT':
                     lineno += value.count('\n')
                 continue
@@ -113,9 +120,16 @@ class Lexer:
                 except Exception:
                     errors.append(f"Literal de carácter inválido {value} en línea {lineno}")
                     continue
+            elif kind == 'MEMORY':
+                value = value[1:]  # Elimina el backtick
+            elif kind == 'ADDRESS':
+                value = value[1:]  # Elimina el caret
             
             tokens.append(Token(kind, value, lineno))
         
+        if errors:
+            raise LexerError("\n".join(errors), lineno)
+            
         # Añadir token EOF al final
         tokens.append(Token('EOF', '', lineno))
-        return tokens, errors
+        return tokens
